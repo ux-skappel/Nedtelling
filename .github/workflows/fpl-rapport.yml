@@ -1,0 +1,47 @@
+name: FPL-rapport
+
+on:
+  schedule:
+    # Fredag 09:00 UTC, i god tid før de fleste fristene.
+    - cron: "0 9 * * 5"
+  workflow_dispatch:
+
+jobs:
+  rapport:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Installer
+        run: |
+          pip install -r requirements.txt
+          pip install -e .
+
+      - name: Lag rapport
+        env:
+          FPL_ENTRY_ID: ${{ vars.FPL_ENTRY_ID }}
+          FPL_COOKIE: ${{ secrets.FPL_COOKIE }}
+        run: |
+          if [ -z "$FPL_ENTRY_ID" ]; then
+            echo "Sett FPL_ENTRY_ID som repository variable først." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          # Utenfor sesongen finnes det ikke noe uttak å rapportere på; da skal
+          # jobben si fra i sammendraget i stedet for å slå ut som en feil.
+          fplbot report --horizon 6 > rapport.txt 2>&1 || true
+          {
+            echo '```'
+            cat rapport.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fpl-rapport
+          path: rapport.txt
+          if-no-files-found: ignore
