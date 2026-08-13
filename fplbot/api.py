@@ -117,7 +117,13 @@ class FplApi:
 
     def entry_picks(self, entry_id: int, event: int) -> dict:
         """Uttaket for en ferdigspilt/pågående gameweek. Krever ikke innlogging."""
-        return self._get(f"entry/{entry_id}/event/{event}/picks/", ttl=600)
+        return self._get(f"entry/{entry_id}/event/{event}/picks/", ttl=86400)
+
+    def league_standings(self, league_id: int, page: int = 1) -> dict:
+        """Tabellen for en klassisk liga, 50 managere per side."""
+        return self._get(
+            f"leagues-classic/{league_id}/standings/?page_standings={page}", ttl=3600
+        )
 
     # ------------------------------------------------------- krever innlogging
 

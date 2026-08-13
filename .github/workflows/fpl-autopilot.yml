@@ -1,0 +1,63 @@
+name: FPL-autopilot
+
+on:
+  # Annenhver time. Autopiloten gjør ingenting før den er innenfor vinduet
+  # foran fristen, så de fleste kjøringene er bare et raskt blikk på klokka.
+  schedule:
+    - cron: "0 */2 * * *"
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Send inn på ekte (ellers tørrkjøring)"
+        type: boolean
+        default: false
+
+jobs:
+  autopilot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Installer
+        run: pip install -e .
+
+      - name: Kjør autopilot
+        env:
+          FPL_ENTRY_ID: ${{ vars.FPL_ENTRY_ID }}
+          FPL_COOKIE: ${{ secrets.FPL_COOKIE }}
+          FPL_ODDS_API_KEY: ${{ secrets.FPL_ODDS_API_KEY }}
+          # Sikkerhetssperre: uten variabelen FPL_AUTOPILOT satt til "on" er
+          # dette bare en tørrkjøring, uansett hva som skjer ellers.
+          AUTOPILOT: ${{ vars.FPL_AUTOPILOT }}
+          MANUAL_CONFIRM: ${{ inputs.confirm }}
+        run: |
+          if [ -z "$FPL_ENTRY_ID" ]; then
+            echo "Sett FPL_ENTRY_ID som repository variable først." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          FLAGS="--horizon 6 --within-hours 4 --elite 100"
+          if [ "$AUTOPILOT" = "on" ] && [ -n "$FPL_COOKIE" ]; then
+            FLAGS="$FLAGS --confirm"
+          elif [ "$MANUAL_CONFIRM" = "true" ] && [ -n "$FPL_COOKIE" ]; then
+            FLAGS="$FLAGS --confirm"
+          fi
+
+          echo "Kjører: fplbot autopilot $FLAGS"
+          fplbot autopilot $FLAGS > utfall.txt 2>&1 || true
+          {
+            echo '```'
+            cat utfall.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: autopilot-logg
+          path: utfall.txt
+          if-no-files-found: ignore

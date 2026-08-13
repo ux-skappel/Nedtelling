@@ -5,21 +5,67 @@ from __future__ import annotations
 import argparse
 import sys
 
-from . import auth, report
+from . import auth, deadline, report
 from .api import FplApi, FplError
 from .chips import chip_advice
 from .model import Player, ProjectionModel
 from .optimizer import optimize_squad, pick_lineup, xi_value
 from .scoring import DEF, FWD, GKP, MID
+from .sources import elite as elite_source
+from .sources import odds as odds_source
+from .strength import fit_team_strength
 from .transfers import rank_transfer_options, suggest_transfers
 
 POSITION_BY_NAME = {"GKP": GKP, "GK": GKP, "DEF": DEF, "MID": MID, "FWD": FWD}
 
 
 def build_model(args) -> tuple[FplApi, ProjectionModel]:
+    """Setter sammen modellen av alle kildene som er tilgjengelige."""
     api = FplApi(cookie=auth.get_cookie(), use_cache=not args.no_cache)
-    model = ProjectionModel(api.bootstrap(), api.fixtures(), blend_ppg=args.blend)
+    bootstrap = api.bootstrap()
+    fixtures = api.fixtures()
+
+    # Lagstyrke fittet på resultatene så langt; faller tilbake på FDR i august.
+    finished = [e["id"] for e in bootstrap["events"] if e.get("finished")]
+    current = max(finished) if finished else 0
+    strength = fit_team_strength(fixtures, [t["id"] for t in bootstrap["teams"]], current)
+
+    elite = None
+    if getattr(args, "elite", 0):
+        elite = elite_source.fetch_elite_view(
+            api, current, managers=args.elite, use_cache=not args.no_cache
+        )
+        if elite is None and current > 0:
+            print("Advarsel: fikk ikke tak i uttakene til topp-managerne.\n")
+
+    odds_overrides = None
+    if getattr(args, "odds", False):
+        odds_overrides = _load_odds(bootstrap)
+
+    model = ProjectionModel(
+        bootstrap,
+        fixtures,
+        blend_ppg=args.blend,
+        strength=strength,
+        elite=elite,
+        odds_overrides=odds_overrides,
+    )
     return api, model
+
+
+def _load_odds(bootstrap: dict) -> dict | None:
+    if not odds_source.api_key():
+        print("Advarsel: --odds krever FPL_ODDS_API_KEY. Hopper over odds.\n")
+        return None
+    try:
+        matches = odds_source.fetch_odds()
+    except Exception as exc:  # nettverk, kvote eller formatendring hos leverandøren
+        print(f"Advarsel: klarte ikke hente odds ({exc}). Går videre uten.\n")
+        return None
+    names = {t["id"]: t["name"] for t in bootstrap["teams"]}
+    overrides = odds_source.strength_overrides(matches, names)
+    print(f"Odds hentet for {len(overrides)} kamper.\n")
+    return overrides
 
 
 def resolve_events(model: ProjectionModel, args) -> list[int]:
@@ -267,6 +313,84 @@ def cmd_report(args) -> None:
         print(f"\nSkrevet til {args.out}")
 
 
+def cmd_elite(args) -> None:
+    _, model = build_model(args)
+    events = resolve_events(model, args)
+    if model.elite is None:
+        raise SystemExit(
+            "Ingen elitedata ennå. Rankingen fylles opp først etter at GW1 er spilt. "
+            "Bruk --elite <antall> for å hente flere managere."
+        )
+    print(report.header(model, events))
+    print(f"Basert på uttakene til {model.elite.managers} av de best rangerte managerne.\n")
+    print(report.elite_block(model, events, limit=args.top))
+
+
+def cmd_autopilot(args) -> None:
+    # Nær fristen skal vi aldri gå på mellomlagrede data.
+    args.no_cache = True
+    api, model = build_model(args)
+    events = resolve_events(model, args)
+    data = load_squad(api, model, args)
+    free = args.free if args.free is not None else data["free_transfers"]
+    bank = round(args.bank * 10) if args.bank is not None else data["bank"]
+
+    plan = suggest_transfers(
+        model,
+        data["players"],
+        events,
+        selling_prices=data["selling_prices"],
+        bank=bank,
+        free_transfers=free,
+        max_transfers=args.max_transfers,
+        min_availability=args.min_availability,
+    )
+    decision = deadline.decide(
+        model,
+        data["players"],
+        plan,
+        within_hours=args.within_hours,
+        min_gain=args.min_gain,
+        allow_hits=args.allow_hits,
+    )
+
+    print(report.header(model, events))
+    print(report.autopilot_block(decision, events))
+
+    if not decision.in_window:
+        return
+
+    squad_after = data["players"]
+    if decision.should_transfer:
+        if not args.confirm:
+            print("\nTørrkjøring. Legg til --confirm for å gjennomføre byttene.")
+        else:
+            moves = [
+                (out.id, into.id, data["selling_prices"][out.id], into.cost)
+                for out, into in zip(plan.out, plan.incoming, strict=True)
+            ]
+            api.submit_transfers(auth.build_transfer_payload(data["entry_id"], events[0], moves))
+            print("\nByttene er gjennomført.")
+            squad_after = [p for p in data["players"] if p not in plan.out] + plan.incoming
+
+    lineup = pick_lineup(squad_after, events[0])
+    print()
+    print(report.lineup_block(lineup))
+    if args.confirm:
+        api.submit_lineup(
+            data["entry_id"],
+            auth.build_lineup_payload(
+                [p.id for p in lineup.starters],
+                [p.id for p in lineup.bench],
+                lineup.captain.id,
+                lineup.vice.id,
+            ),
+        )
+        print("\nOppstillingen er sendt inn.")
+    else:
+        print("\nTørrkjøring. Legg til --confirm for å sende inn oppstillingen.")
+
+
 def cmd_config(args) -> None:
     if args.entry_id:
         auth.set_entry_id(args.entry_id)
@@ -356,6 +480,15 @@ COMMON_ARGS = [
     ),
     ("--no-cache", {"action": "store_true", "help": "ikke bruk mellomlagrede data"}),
     ("--entry", {"type": int, "default": None, "help": "lag-ID"}),
+    (
+        "--elite",
+        {
+            "type": int,
+            "default": 0,
+            "help": "hent uttakene til N topp-managere (0 = av)",
+        },
+    ),
+    ("--odds", {"action": "store_true", "help": "bruk bookmakerodds (krever FPL_ODDS_API_KEY)"}),
 ]
 
 
@@ -428,6 +561,23 @@ def build_parser() -> argparse.ArgumentParser:
     add_transfer_args(full)
     full.add_argument("--out", help="skriv rapporten til fil")
     full.set_defaults(func=cmd_report)
+
+    elite = add_parser("elite", "vis hva de best rangerte managerne eier")
+    elite.add_argument("--free", type=int, default=1)
+    elite.add_argument("--top", type=int, default=20)
+    elite.set_defaults(func=cmd_elite)
+
+    autopilot = add_parser("autopilot", "handle automatisk rett før fristen")
+    add_transfer_args(autopilot)
+    autopilot.add_argument(
+        "--within-hours", type=float, default=3.0, help="hvor nær fristen den skal handle (3)"
+    )
+    autopilot.add_argument(
+        "--min-gain", type=float, default=1.0, help="minste netto gevinst for å bytte (1.0)"
+    )
+    autopilot.add_argument("--allow-hits", action="store_true", help="godta minuspoeng")
+    autopilot.add_argument("--confirm", action="store_true", help="gjennomfør på ekte")
+    autopilot.set_defaults(func=cmd_autopilot)
 
     config = add_parser("config", "lagre lag-ID")
     config.add_argument("--entry-id", type=int)

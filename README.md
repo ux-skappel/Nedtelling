@@ -29,6 +29,8 @@ Uten installasjon virker `python -m fplbot.cli ...` like godt.
 | `fplbot player haaland` | Forklarer projeksjonen for én spiller |
 | `fplbot chips` | Sier når Bench Boost, Triple Captain, Free Hit og Wildcard bør brukes |
 | `fplbot report` | Alt sammen i én rapport før fristen |
+| `fplbot elite` | Hva de best rangerte managerne i verden eier og kapteiner |
+| `fplbot autopilot` | Handler av seg selv rett før fristen, hvis det trengs |
 | `fplbot submit-lineup` | Sender inn oppstillingen (krever cookie og `--confirm`) |
 | `fplbot submit-transfers` | Gjennomfører byttene (krever cookie og `--confirm`) |
 
@@ -46,6 +48,27 @@ fplbot report --out rapport.txt
 * `--min-availability` — filtrerer bort skadde og tvilsomme spillere
 * `--no-cache` — henter ferske data i stedet for mellomlagrede
 
+## Hvilke data den henter
+
+Hver kjøring henter ferske tall fra kildene som faktisk er tilgjengelige:
+
+| Kilde | Hva den gir | Status |
+| --- | --- | --- |
+| FPL-API-et | Priser, eierandel, xG/xA per 90 (Opta), skader, dødballroller | Alltid |
+| Resultatene så langt | Angreps- og forsvarsrating per lag, fittet på målene | Fra sesongstart |
+| Toppen av verdensrankingen | Eierskap og kaptein blant de beste managerne | `--elite N` |
+| Bookmakerodds | Forventede mål per kamp, det skarpeste anslaget som finnes | `--odds` + nøkkel |
+
+**Om YouTube:** en bot kan ikke se video, og transkripsjoner av FPL-kanaler er
+både trege og upålitelige. Men signalet du er ute etter derfra — hva de beste
+faktisk gjør — ligger direkte i FPL-API-et. `--elite 100` henter uttakene til de
+100 best rangerte managerne i verden og viser hvem de eier, hvem de kapteiner,
+og hvor de skiller seg fra folket. Det er den samme informasjonen kanalene
+diskuterer, bare uten mellomledd og et døgn tidligere.
+
+To kilder ble vurdert og forkastet: Understat leverer ikke lenger data i
+sidekilden, og FBref svarer 403 på alt som ikke er en nettleser.
+
 ## Slik regner modellen
 
 For hver spiller og hver kommende kamp:
@@ -58,15 +81,24 @@ For hver spiller og hver kommende kamp:
    hentes fra FPL sine egne tall. Har spilleren lite spilletid bak seg, krympes
    ratene mot medianen for posisjonen — to gode kamper skal ikke gjøre en
    innbytter til stjerne.
-3. **Motstander.** FDR-en for kampen justerer angrepsratene opp eller ned, og
-   bestemmer sannsynligheten for clean sheet og forventede baklengsmål.
-   Hjemmekamp gir et lite påslag.
-4. **Poeng.** Alt regnes om etter FPL-reglene: oppmøte, mål etter posisjon,
+3. **Motstander.** Angreps- og forsvarsrating for hvert lag fittes på målene som
+   faktisk er scoret, med en Poisson-modell og halv vekt etter ti runder. Ut av
+   den kommer forventede mål begge veier i hver kamp, som gir både
+   angrepsmultiplikator og clean sheet-sannsynlighet. Tidlig i sesongen krympes
+   ratingene mot FPL sin FDR, og før sesongstart er de identiske med den.
+   Finnes det odds, går de foran alt annet.
+4. **Dødball.** Den som står oppført som straffe-, frispark- eller cornertaker
+   får et påslag — men bare i den grad vi ikke har sett rollen i tallene hans
+   fra før. En etablert straffetaker har den allerede inne i xG-en sin.
+5. **Poeng.** Alt regnes om etter FPL-reglene: oppmøte, mål etter posisjon,
    assists, clean sheet, baklengsmål, redninger, bonus, kort og defensive
    contributions (Poisson-sannsynlighet for å nå terskelen på 10 for forsvar,
    12 for midtbane og spiss).
-5. **Anker.** Til slutt trekkes projeksjonen litt mot spillerens faktiske
-   poengsnitt, vektet etter hvor mye vi har sett av ham.
+6. **Anker.** Til slutt trekkes projeksjonen litt mot spillerens faktiske
+   poengsnitt, vektet etter hvor mye vi har sett av ham. Er elitedata slått på,
+   justeres startsjansen noen prosentpoeng opp eller ned etter hva
+   topp-managerne gjør — de vet ofte om en rolleendring før tallene viser den.
+   Effekten er med vilje for liten til å snu et anslag.
 
 Blanke runder gir null, dobbeltrunder summeres. `fplbot player <navn>` viser
 regnestykket per runde.
@@ -108,6 +140,36 @@ fplbot submit-transfers --confirm --allow-hits
 
 `submit-transfers` nekter å ta minuspoeng med mindre du sier `--allow-hits`.
 
+## Autopilot: bytter rett før fristen
+
+`fplbot autopilot` er laget for å kjøre ofte — for eksempel annenhver time — og
+avgjøre selv om det er tid for å handle:
+
+* **Utenfor vinduet** (mer enn `--within-hours` igjen til fristen) gjør den
+  ingenting og avslutter.
+* **Inne i vinduet** henter den ferske data (aldri fra cache), setter
+  oppstillingen, og bytter *hvis det trengs*.
+
+Et bytte regnes som nødvendig når netto gevinst over horisonten er minst
+`--min-gain` poeng, eller når noen i troppen er skadet, utestengt eller uten
+klubb. Minuspoeng tas aldri med mindre du sier `--allow-hits`. Oppstillingen
+settes alltid — den er gratis og kan ikke gjøre skade.
+
+```bash
+fplbot autopilot                          # tørrkjøring, viser hva den ville gjort
+fplbot autopilot --within-hours 2 --min-gain 1.5
+fplbot autopilot --confirm                # gjennomfører på ekte
+```
+
+`.github/workflows/fpl-autopilot.yml` kjører dette annenhver time med et
+fire timers vindu, så minst én kjøring lander foran hver frist. Den er
+**tørrkjøring som standard**: for at den skal sende inn noe må du både legge
+inn `FPL_COOKIE` som secret og sette repository variable `FPL_AUTOPILOT` til
+`on`. Uten begge deler rapporterer den bare.
+
+Vær klar over at cookien går ut etter noen uker. Da slutter autopiloten å sende
+inn, og du må hente en ny — sjekk kjøringene innimellom i sesongen.
+
 ## Automatisk kjøring
 
 `.github/workflows/fpl-rapport.yml` kjører rapporten hver fredag og legger den i
@@ -134,8 +196,12 @@ Testene bruker syntetiske data, så de kjører uten å røre FPL sine servere.
 ## Forbehold
 
 Modellen bygger på offentlige data og enkle antakelser. Den kjenner ikke
-pressekonferanser, rotasjonsplaner eller hvem som tar straffene neste uke, og
-den ser bare FDR — ikke den faktiske formen til motstanderen. Rett før
-sesongstart er tallene fra forrige sesong, så nysignerte og spillere med ny
-rolle blir anslått ut fra prisen. Bruk den som et beslutningsgrunnlag, ikke en
-fasit.
+pressekonferanser eller rotasjonsplaner, og den regner analytisk forventning —
+den simulerer ikke utfall, så den sier ingenting om hvor sannsynlig et haul er,
+bare hva snittet blir. Verdien av autobytter blir dermed litt undervurdert.
+
+Lagratingene trenger noen runder før de er verdt noe; i august er de i praksis
+FDR. Rett før sesongstart er spillertallene fra forrige sesong, så nysignerte og
+spillere med ny rolle blir anslått ut fra pris og dødballrolle.
+
+Bruk den som et beslutningsgrunnlag, ikke en fasit.

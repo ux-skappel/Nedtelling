@@ -15,6 +15,7 @@ from statistics import median
 
 from . import scoring
 from .scoring import DEF, FWD, GKP, MID
+from .strength import LEAGUE_GOALS_PER_TEAM, TeamStrength
 
 # Antall minutter som skal til før en spillers egne rater teller fullt ut.
 RATE_SHRINK_MINUTES = 450.0
@@ -25,6 +26,15 @@ P60_GIVEN_START = 0.85
 P60_GIVEN_SUB = 0.03
 SUB_MINUTES = 18.0
 DEFAULT_START_MINUTES = 75.0
+
+# Ekstra mål/assists for den som er satt opp på dødball. Premien gis bare i den
+# grad spillerens egen historikk ikke allerede fanger den opp - en etablert
+# straffetaker har rollen inne i xG-en sin fra før.
+PENALTY_BONUS_XG = 0.09
+FREEKICK_BONUS_XG = 0.03
+CORNER_BONUS_XA = 0.05
+# Hvor mye elite-eierskap får lov til å flytte anslått startsannsynlighet.
+MAX_ELITE_NUDGE = 0.10
 
 STATUS_AVAILABILITY = {
     "a": 1.00,  # tilgjengelig
@@ -43,6 +53,18 @@ def _f(value, default: float = 0.0) -> float:
         return float(value)
     except (TypeError, ValueError):
         return default
+
+
+def _set_piece_label(element: dict) -> str:
+    """Kort merkelapp for dødballroller: P for straffe, F for frispark, C for corner."""
+    roles = ""
+    if element.get("penalties_order") == 1:
+        roles += "P"
+    if element.get("direct_freekicks_order") == 1:
+        roles += "F"
+    if element.get("corners_and_indirect_freekicks_order") == 1:
+        roles += "C"
+    return roles
 
 
 def expected_conceded_penalty(lam: float) -> float:
@@ -65,6 +87,19 @@ class Fixture:
     opponent_short: str
     is_home: bool
     difficulty: int
+    # Forventede mål for og mot laget i denne kampen, fra lagstyrke eller odds.
+    expected_scored: float = LEAGUE_GOALS_PER_TEAM
+    expected_conceded: float = LEAGUE_GOALS_PER_TEAM
+
+    @property
+    def attack_multiplier(self) -> float:
+        """Hvor mye kampen løfter eller demper angrepsproduksjonen."""
+        return self.expected_scored / LEAGUE_GOALS_PER_TEAM
+
+    @property
+    def clean_sheet_probability(self) -> float:
+        """P(null baklengs) under en Poisson-fordeling."""
+        return math.exp(-self.expected_conceded)
 
     def label(self) -> str:
         name = self.opponent_short if self.is_home else self.opponent_short.lower()
@@ -92,8 +127,18 @@ class Player:
     points_per_game: float
     total_points: int
     minutes: int
+    set_pieces: str = ""
+    elite_ownership: float | None = None
+    elite_captaincy: float | None = None
     xp: dict[int, float] = field(default_factory=dict)
     fixtures: dict[int, list[Fixture]] = field(default_factory=dict)
+
+    @property
+    def elite_edge(self) -> float | None:
+        """Elite-eierskap minus eierskap blant alle, i prosentpoeng."""
+        if self.elite_ownership is None:
+            return None
+        return self.elite_ownership - self.selected_by
 
     @property
     def price(self) -> float:
@@ -124,10 +169,16 @@ class ProjectionModel:
         bootstrap: dict,
         fixtures: list[dict],
         blend_ppg: float = 0.25,
+        strength: TeamStrength | None = None,
+        elite=None,
+        odds_overrides: dict[tuple[int, int], tuple[float, float]] | None = None,
     ) -> None:
         self.bootstrap = bootstrap
         self.raw_fixtures = fixtures
         self.blend_ppg = blend_ppg
+        self.strength = strength or TeamStrength()
+        self.elite = elite
+        self.odds_overrides = odds_overrides or {}
         self.teams = {t["id"]: t for t in bootstrap["teams"]}
         self.events = bootstrap["events"]
         self.games_basis = self._games_basis()
@@ -180,13 +231,20 @@ class ProjectionModel:
             if event is None:
                 continue  # kamp uten fastsatt runde
             home, away = fixture["team_h"], fixture["team_a"]
+            home_difficulty = fixture.get("team_h_difficulty") or 3
+            away_difficulty = fixture.get("team_a_difficulty") or 3
+            home_goals, away_goals = self._match_expectation(
+                home, away, home_difficulty, away_difficulty
+            )
             index[home].setdefault(event, []).append(
                 Fixture(
                     event=event,
                     opponent=away,
                     opponent_short=self.teams[away]["short_name"],
                     is_home=True,
-                    difficulty=fixture.get("team_h_difficulty") or 3,
+                    difficulty=home_difficulty,
+                    expected_scored=home_goals,
+                    expected_conceded=away_goals,
                 )
             )
             index[away].setdefault(event, []).append(
@@ -195,10 +253,26 @@ class ProjectionModel:
                     opponent=home,
                     opponent_short=self.teams[home]["short_name"],
                     is_home=False,
-                    difficulty=fixture.get("team_a_difficulty") or 3,
+                    difficulty=away_difficulty,
+                    expected_scored=away_goals,
+                    expected_conceded=home_goals,
                 )
             )
         return index
+
+    def _match_expectation(
+        self, home: int, away: int, home_difficulty: int, away_difficulty: int
+    ) -> tuple[float, float]:
+        """Forventede mål for hjemmelag og bortelag.
+
+        Odds går foran hvis vi har dem, ellers de fittede lagratingene, som selv
+        krymper mot FDR når det er spilt få kamper.
+        """
+        if (home, away) in self.odds_overrides:
+            return self.odds_overrides[(home, away)]
+        home_goals, _ = self.strength.expected_goals(home, away, True, home_difficulty)
+        away_goals, _ = self.strength.expected_goals(away, home, False, away_difficulty)
+        return home_goals, away_goals
 
     def _position_priors(self) -> dict[int, dict[str, float]]:
         """Median-rater per posisjon blant spillere med reell spilletid."""
@@ -276,6 +350,24 @@ class ProjectionModel:
         p_sub = min(p_sub, max(0.0, 1.0 - p_start))
         return p_start, p_sub, start_minutes
 
+    def _elite_adjusted_start(self, element: dict, p_start: float) -> float:
+        """Justerer startsjansen litt etter hva topp-managerne gjør.
+
+        De som ligger øverst vet ofte om en rolleendring før den vises i tallene,
+        enten fra pressekonferanser eller fra å ha sett kampene. Effekten er
+        bevisst liten: den kan flytte anslaget noen prosentpoeng, ikke snu det.
+        """
+        if self.elite is None:
+            return p_start
+        overall = _f(element.get("selected_by_percent"))
+        elite = self.elite.owned_by(element["id"])
+        if elite <= 0 and overall <= 0:
+            return p_start
+        # Skaler differansen i eierandel til et lite påslag eller fradrag.
+        edge = (elite - overall) / 100.0
+        nudge = max(-MAX_ELITE_NUDGE, min(MAX_ELITE_NUDGE, edge))
+        return max(0.0, min(1.0, p_start * (1.0 + nudge)))
+
     def _rate(self, element: dict, key: str, prior_key: str) -> float:
         """Spillerens egen rate krympet mot posisjonssnittet."""
         minutes = _f(element["minutes"])
@@ -293,6 +385,7 @@ class ProjectionModel:
             p_start, p_sub, start_minutes = self._role(element)
             p_start *= availability
             p_sub *= availability
+            p_start = self._elite_adjusted_start(element, p_start)
             expected_minutes = p_start * start_minutes + p_sub * SUB_MINUTES
             player = Player(
                 id=element["id"],
@@ -314,7 +407,11 @@ class ProjectionModel:
                 points_per_game=_f(element.get("points_per_game")),
                 total_points=int(element.get("total_points") or 0),
                 minutes=int(element.get("minutes") or 0),
+                set_pieces=_set_piece_label(element),
             )
+            if self.elite is not None:
+                player.elite_ownership = self.elite.owned_by(player.id)
+                player.elite_captaincy = self.elite.captained_by(player.id)
             player.fixtures = self._fixtures_by_team.get(player.team, {})
             self._project(player, element)
             self.players[player.id] = player
@@ -329,6 +426,16 @@ class ProjectionModel:
         xa90 = self._rate(element, "expected_assists_per_90", "xa90")
         dc90 = self._rate(element, "defensive_contribution_per_90", "dc90")
         saves90 = self._rate(element, "saves_per_90", "saves90")
+
+        # Dødballroller. En spiller med lang historikk har straffene sine inne i
+        # xG-en allerede, så premien gis i takt med hvor lite vi har sett av ham.
+        unseen = 1.0 - confidence
+        if element.get("penalties_order") == 1:
+            xg90 += unseen * PENALTY_BONUS_XG
+        if element.get("direct_freekicks_order") == 1:
+            xg90 += unseen * FREEKICK_BONUS_XG
+        if element.get("corners_and_indirect_freekicks_order") == 1:
+            xa90 += unseen * CORNER_BONUS_XA
 
         per_90 = max(1.0, minutes_played / 90.0)
         prior = self._priors[player.position]
@@ -386,29 +493,23 @@ class ProjectionModel:
         share = minutes / 90.0
         position = player.position
 
-        attack = scoring.fdr_lookup(scoring.ATTACK_BY_FDR, fixture.difficulty)
-        attack *= scoring.HOME_ATTACK_BOOST if fixture.is_home else scoring.AWAY_ATTACK_BOOST
+        attack = fixture.attack_multiplier
 
         points = scoring.appearance_points(p_sixty)
         points += xg90 * share * attack * scoring.GOAL_POINTS[position]
         points += xa90 * share * attack * scoring.ASSIST_POINTS
 
         if scoring.CLEAN_SHEET_POINTS[position] > 0:
-            clean_sheet = scoring.fdr_lookup(scoring.CLEAN_SHEET_BY_FDR, fixture.difficulty)
-            clean_sheet *= (
-                scoring.HOME_CLEAN_SHEET_BOOST
-                if fixture.is_home
-                else scoring.AWAY_CLEAN_SHEET_BOOST
-            )
+            clean_sheet = fixture.clean_sheet_probability
             points += p_sixty * min(1.0, clean_sheet) * scoring.CLEAN_SHEET_POINTS[position]
 
         if position in (GKP, DEF):
-            conceded = scoring.fdr_lookup(scoring.CONCEDED_BY_FDR, fixture.difficulty)
-            conceded *= 0.92 if fixture.is_home else 1.08
-            points -= expected_conceded_penalty(conceded * share)
+            points -= expected_conceded_penalty(fixture.expected_conceded * share)
 
         if position == GKP:
-            points += (saves90 * share) / scoring.SAVES_PER_POINT
+            # En keeper mot et sterkt angrep får flere skudd, og dermed flere redninger.
+            pressure = (fixture.expected_conceded / LEAGUE_GOALS_PER_TEAM) ** 0.5
+            points += (saves90 * share * pressure) / scoring.SAVES_PER_POINT
 
         threshold = scoring.DEFCON_THRESHOLD[position]
         if threshold < 90:
@@ -439,8 +540,9 @@ class ProjectionModel:
         minutes_ratio = min(1.3, player.expected_minutes / minutes_per_game)
         anchor = 0.0
         for fixture in fixtures:
-            attack = scoring.fdr_lookup(scoring.ATTACK_BY_FDR, fixture.difficulty)
-            anchor += player.points_per_game * minutes_ratio * (0.65 + 0.35 * attack)
+            anchor += (
+                player.points_per_game * minutes_ratio * (0.65 + 0.35 * fixture.attack_multiplier)
+            )
         weight = self.blend_ppg * confidence
         return (1 - weight) * model_points + weight * anchor
 
