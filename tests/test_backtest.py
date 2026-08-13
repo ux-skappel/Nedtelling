@@ -360,3 +360,55 @@ def test_season_key_matches_fpl_format():
     from fplbot.backtest.rank import season_key
 
     assert season_key("2025-26") == "2025/26"
+
+
+# ----------------------------------------------------------------------- chips
+
+
+def chip_squad(model, event=5):
+    return list(model.players.values())
+
+
+def test_second_wildcard_is_locked_to_the_second_half():
+    """FPL gir ikke wildcard nummer to før første halvsesong er over."""
+    from fplbot.backtest import chips
+
+    state = chips.ChipState(wildcards=1, bench_boost=0, triple_captain=0, free_hit=0)
+    early = chips.choose_chip(state, [], event=10, squad_gap=999)
+    late = chips.choose_chip(state, [], event=25, squad_gap=999)
+    assert early is None
+    assert late == chips.WILDCARD
+
+
+def test_first_wildcard_waits_for_some_data():
+    from fplbot.backtest import chips
+
+    state = chips.ChipState(bench_boost=0, triple_captain=0, free_hit=0)
+    assert chips.choose_chip(state, [], event=2, squad_gap=999) is None
+    assert chips.choose_chip(state, [], event=6, squad_gap=999) == chips.WILDCARD
+
+
+def test_wildcard_needs_a_real_gap():
+    from fplbot.backtest import chips
+
+    state = chips.ChipState(bench_boost=0, triple_captain=0, free_hit=0)
+    assert chips.choose_chip(state, [], event=8, squad_gap=5.0) is None
+    assert chips.choose_chip(state, [], event=8, squad_gap=40.0) == chips.WILDCARD
+
+
+def test_unused_chips_are_forced_out_before_the_season_ends():
+    from fplbot.backtest import chips
+
+    state = chips.ChipState(wildcards=0, bench_boost=0, triple_captain=0)
+    assert chips.choose_chip(state, [], event=36, squad_gap=0) == chips.FREE_HIT
+
+
+def test_spending_a_chip_records_it():
+    from fplbot.backtest import chips
+
+    state = chips.ChipState()
+    state.spend(chips.TRIPLE_CAPTAIN, 12)
+    assert state.played[12] == chips.TRIPLE_CAPTAIN
+    assert not state.available(chips.TRIPLE_CAPTAIN)
+    # Bare ett kort per runde.
+    assert chips.choose_chip(state, [], event=12, squad_gap=999) is None

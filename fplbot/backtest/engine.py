@@ -20,6 +20,7 @@ from ..optimizer import XI_MIN, optimize_squad, pick_lineup
 from ..scoring import GKP, TRANSFER_HIT_COST
 from ..strength import fit_team_strength
 from ..transfers import suggest_transfers
+from . import chips
 from .history import Season, prior_profile
 
 MAX_SAVED_TRANSFERS = 5
@@ -42,6 +43,7 @@ class GameweekResult:
     starters: list[dict] = field(default_factory=list)
     bench: list[dict] = field(default_factory=list)
     moves: list[dict] = field(default_factory=list)
+    chip: str | None = None
 
     @property
     def net_points(self) -> int:
@@ -64,6 +66,7 @@ class GameweekResult:
             "starters": self.starters,
             "bench": self.bench,
             "moves": self.moves,
+            "chip": self.chip,
         }
 
 
@@ -201,10 +204,16 @@ def _player_card(player: Player, season: Season, event: int, captain: bool = Fal
     }
 
 
-def score_gameweek(squad: list[Player], season: Season, event: int) -> GameweekScore:
+def score_gameweek(
+    squad: list[Player], season: Season, event: int, chip: str | None = None
+) -> GameweekScore:
     """Setter laget, kjører autobytter og teller poengene som faktisk kom."""
     lineup = pick_lineup(squad, event)
-    final_xi, swaps = apply_autosubs(lineup.starters, lineup.bench, season, event)
+    if chip == chips.BENCH_BOOST:
+        # Med Bench Boost teller alle femten, så autobytter er uten betydning.
+        final_xi, swaps = list(squad), 0
+    else:
+        final_xi, swaps = apply_autosubs(lineup.starters, lineup.bench, season, event)
 
     captain = lineup.captain
     # Visekapteinen overtar hvis kapteinen ikke spilte.
@@ -212,8 +221,10 @@ def score_gameweek(squad: list[Player], season: Season, event: int) -> GameweekS
         captain = lineup.vice
 
     points = sum(season.actual_points(p.id, event) for p in final_xi)
+    # Triple Captain gir kapteinen to ekstra ganger i stedet for én.
+    multiplier = 2 if chip == chips.TRIPLE_CAPTAIN else 1
     captain_points = season.actual_points(captain.id, event) if captain in final_xi else 0
-    points += captain_points
+    points += captain_points * multiplier
 
     bench = [p for p in squad if p not in final_xi]
     return GameweekScore(
@@ -243,6 +254,9 @@ def run_backtest(
     # Målt til å skade: se README. Står av med vilje, men kan slås på for
     # å etterprøve hypotesen på andre sesonger.
     use_prior_stats: bool = False,
+    # Chips lå ubrukt i de første kjøringene. Med dette på spilles de etter
+    # modellens egne anslag, uten fasit.
+    use_chips: bool = False,
     label: str = "standard",
     # Kontrollknapp for lekkasjetesting: får bytte ut modellens anslag før
     # troppen settes. Se backtest/controls.py.
@@ -273,6 +287,7 @@ def run_backtest(
     purchase_prices: dict[int, int] = {}
     bank = STARTING_BUDGET
     free_transfers = 1
+    chip_state = chips.ChipState() if use_chips else None
 
     for event in range(start_event, end_event + 1):
         cached = model_cache.get(event) if model_cache is not None else None
@@ -309,6 +324,7 @@ def run_backtest(
         transfers_made = 0
         hits = 0
         moves: list[dict] = []
+        chip: str | None = None
 
         if squad is None:
             initial = optimize_squad(model, events, budget=bank, min_availability=0.0)
@@ -318,24 +334,54 @@ def run_backtest(
         else:
             # Ta med prisene inn i den nye modellen, og hopp over spillere som
             # har forsvunnet ut av spillet siden forrige runde.
+            # Free Hit varer én runde; etterpå er den gamle troppen tilbake.
+            if chip_state is not None and chip_state.revert_to is not None:
+                squad = chip_state.revert_to
+                purchase_prices = chip_state.revert_prices or purchase_prices
+                bank = chip_state.revert_bank
+                chip_state.revert_to = None
+                chip_state.revert_prices = None
+
             squad = [model.players[p.id] for p in squad if p.id in model.players]
             if len(squad) < 15:
                 # En spiller er fjernet fra spillet; da kan vi ikke regne videre.
                 break
             prices = {p.id: selling_price(purchase_prices[p.id], p.cost) for p in squad}
+
+            if chip_state is not None:
+                # Wildcard vurderes mot hvor langt troppen er fra den optimale.
+                optimal = optimize_squad(model, events, budget=1000, min_availability=0.0)
+                gap = sum(p.weighted_xp(events) for p in optimal.players) - sum(
+                    p.weighted_xp(events) for p in squad
+                )
+                chip = chips.choose_chip(chip_state, squad, event, gap)
+
+            if chip in (chips.WILDCARD, chips.FREE_HIT):
+                # Begge gir fritt leide til å bygge om troppen denne runden.
+                if chip == chips.FREE_HIT:
+                    chip_state.revert_to = list(squad)
+                    chip_state.revert_prices = dict(purchase_prices)
+                    chip_state.revert_bank = bank
+                free_this_week, cap = 15, 15
+            else:
+                free_this_week, cap = free_transfers, max_transfers
+
             plan = suggest_transfers(
                 model,
                 squad,
                 events,
                 selling_prices=prices,
                 bank=bank,
-                free_transfers=free_transfers,
-                max_transfers=max_transfers,
+                free_transfers=free_this_week,
+                max_transfers=cap,
                 min_availability=0.0,
             )
-            worth_it = plan.incoming and plan.net_gain >= min_gain
-            if worth_it and plan.hits and not allow_hits:
+            unlimited = chip in (chips.WILDCARD, chips.FREE_HIT)
+            worth_it = plan.incoming and (unlimited or plan.net_gain >= min_gain)
+            if worth_it and plan.hits and not allow_hits and not unlimited:
                 worth_it = False
+            if chip and chip_state is not None:
+                chip_state.spend(chip, event)
             if worth_it:
                 for out_player, in_player in zip(plan.out, plan.incoming, strict=True):
                     moves.append(
@@ -357,10 +403,13 @@ def run_backtest(
                 transfers_made = plan.count
                 hits = plan.hits
 
-        free_transfers = min(MAX_SAVED_TRANSFERS, free_transfers - transfers_made + 1)
-        free_transfers = max(1, free_transfers)
+        # Wildcard og Free Hit koster ingen av de opptjente byttene.
+        if chip in (chips.WILDCARD, chips.FREE_HIT):
+            free_transfers = min(MAX_SAVED_TRANSFERS, free_transfers + 1)
+        else:
+            free_transfers = max(1, min(MAX_SAVED_TRANSFERS, free_transfers - transfers_made + 1))
 
-        score = score_gameweek(squad, season, event)
+        score = score_gameweek(squad, season, event, chip=chip)
         for player in squad:
             result.projection_pairs.append(
                 (player.xp.get(event, 0.0), season.actual_points(player.id, event))
@@ -381,6 +430,7 @@ def run_backtest(
             starters=score.starters,
             bench=score.bench,
             moves=moves,
+            chip=chip,
         )
         result.gameweeks.append(gameweek)
         if on_gameweek:
