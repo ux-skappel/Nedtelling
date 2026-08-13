@@ -32,9 +32,11 @@ def build_model(args) -> tuple[FplApi, ProjectionModel]:
 
     elite = None
     if getattr(args, "elite", 0):
-        elite = elite_source.fetch_elite_view(
-            api, current, managers=args.elite, use_cache=not args.no_cache
-        )
+        # Uttakene til topp-managerne er låst når runden er ferdigspilt, så de
+        # kan alltid leses fra cachen. Å hente dem på nytt ville kostet ett kall
+        # per manager for data som ikke kan ha endret seg. Slett cache-katalogen
+        # om du likevel vil tvinge fram en ny henting.
+        elite = elite_source.fetch_elite_view(api, current, managers=args.elite)
         if elite is None and current > 0:
             print("Advarsel: fikk ikke tak i uttakene til topp-managerne.\n")
 

@@ -311,3 +311,37 @@ def test_post_refuses_a_cookie_without_csrf_token():
     api = FplApi(cookie="pl_profile=abc; sessionid=xyz", use_cache=False)
     with pytest.raises(FplError, match="csrftoken"):
         api.submit_transfers({"entry": 1})
+
+
+def test_elite_view_is_read_from_cache_when_present(tmp_path, monkeypatch):
+    """Ferdigspilte runder er låst, så en ny henting skal ikke skje."""
+    import json
+
+    from fplbot.sources import elite as elite_source
+
+    monkeypatch.setattr(elite_source, "DEFAULT_CACHE_DIR", tmp_path)
+    cache = tmp_path / "elite_5_100.json"
+    cache.write_text(
+        json.dumps({"event": 5, "managers": 100, "ownership": {"7": 60.0}, "captaincy": {}})
+    )
+
+    class ExplodingApi:
+        def league_standings(self, *args, **kwargs):
+            raise AssertionError("skulle ikke ha hentet noe over nett")
+
+        def entry_picks(self, *args, **kwargs):
+            raise AssertionError("skulle ikke ha hentet noe over nett")
+
+    view = elite_source.fetch_elite_view(ExplodingApi(), 5, managers=100)
+    assert view is not None
+    assert view.owned_by(7) == 60.0
+
+
+def test_elite_view_skips_the_network_before_the_season_starts():
+    from fplbot.sources import elite as elite_source
+
+    class ExplodingApi:
+        def league_standings(self, *args, **kwargs):
+            raise AssertionError("skulle ikke ha hentet noe over nett")
+
+    assert elite_source.fetch_elite_view(ExplodingApi(), 0) is None
