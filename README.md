@@ -30,6 +30,7 @@ Uten installasjon virker `python -m fplbot.cli ...` like godt.
 | `fplbot chips` | Sier når Bench Boost, Triple Captain, Free Hit og Wildcard bør brukes |
 | `fplbot report` | Alt sammen i én rapport før fristen |
 | `fplbot elite` | Hva de best rangerte managerne i verden eier og kapteiner |
+| `fplbot backtest` | Spiller gjennom en tidligere sesong og teller poengene |
 | `fplbot autopilot` | Handler av seg selv rett før fristen, hvis det trengs |
 | `fplbot submit-lineup` | Sender inn oppstillingen (krever cookie og `--confirm`) |
 | `fplbot submit-transfers` | Gjennomfører byttene (krever cookie og `--confirm`) |
@@ -139,6 +140,74 @@ fplbot submit-transfers --confirm --allow-hits
 ```
 
 `submit-transfers` nekter å ta minuspoeng med mindre du sier `--allow-hits`.
+
+## Backtest mot tidligere sesonger
+
+FPL sitt API serverer bare inneværende sesong, så historikken hentes fra det
+åpne arkivet til [vaastav/Fantasy-Premier-League][arkiv], som har en rad per
+spiller per runde tilbake til 2016/17.
+
+```bash
+fplbot backtest --season 2025-26              # hele sesongen
+fplbot backtest --season 2025-26 --to-gw 10   # bare starten
+fplbot backtest --min-gain 2.0 --max-transfers 1
+```
+
+Testen går forlengs, runde for runde. For hver runde bygges et *snapshot* av
+det som var kjent før fristen: totalene summeres til og med forrige runde, og
+resultatene fra runden vi står foran maskeres bort. Modellen kan altså ikke se
+hvem som scoret. Så settes laget, autobyttene kjøres, og poengene telles slik
+FPL ville telt dem — med gratis bytter, minuspoeng, salgspriser og
+visekaptein-regelen.
+
+Resultatet for 2025/26, med standardinnstillingene:
+
+```
+Sesong 2025-26: 2307 poeng på 38 runder (60.7 per runde)
+Bytter: 36, minuspoeng: 0
+Treffsikkerhet per spiller: bommer i snitt 3.06 poeng, korrelasjon 0.296
+```
+
+Til sammenlikning lå snittmanageren rundt 2000-2100 den sesongen. Tallet er
+høyt nok til å være nyttig og lavt nok til å være troverdig — hadde det vist
+3000, ville det vært et tegn på at data lakk inn fra framtiden.
+
+### Hva backtesten ikke kan si noe om
+
+* **Skader.** Arkivet har ikke spillerstatus per runde, så backtesten vet ikke
+  hvem som var tvilsomme. Den ekte boten ser flaggene og styrer unna, så dette
+  trekker resultatet ned, ikke opp.
+* **Dødballroller** og **elitedata** finnes ikke historisk per runde. Å hente
+  dem fra fasiten ville vært juks, så de står avslått.
+* **Prisene** i arkivet er påvirket av det som faktisk skjedde. Effekten er
+  liten, men den er der.
+* Én sesong er én sesong. 2307 poeng er ett utfall, ikke en forventning.
+
+### Et funn: fjorårets tall gjør det verre
+
+FPL nullstiller alle totaler ved sesongstart, så fra runde 2 og noen uker
+framover vet modellen nesten ingenting. Den hypotesen lå snublende nær: la
+fjorårets rater fylle hullet, så slutter modellen å behandle en etablert
+spiller som en tilfeldig spiller til samme pris.
+
+Målt på 2025/26 ble det verre:
+
+| Oppsett | Sesong | GW1-10 | Bom per spiller | Korrelasjon |
+| --- | --- | --- | --- | --- |
+| Uten fjorårsdata | **2307** | **645** | 3.06 | 0.296 |
+| Med fjorårsdata | 2179 | 547 | 3.02 | 0.281 |
+
+Verdt å merke seg: treffsikkerheten per spiller ble marginalt *bedre*, mens
+poengene ble klart dårligere. Det henger sammen — optimereren plukker de 15
+ytterpunktene av 600 spillere, ikke gjennomsnittet. Å forankre alle mot fjoråret
+gjør modellen forsiktig, og da mister den spillerne som tar et byks. Det er de
+byksene som vinner sesongen.
+
+Hypotesen er derfor forkastet, ikke skrudd på. Flagget `--priors` finnes fortsatt
+så du kan etterprøve den på andre sesonger — det er nettopp det backtesten er til
+for.
+
+[arkiv]: https://github.com/vaastav/Fantasy-Premier-League
 
 ## Autopilot: bytter rett før fristen
 

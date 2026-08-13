@@ -172,7 +172,11 @@ class ProjectionModel:
         strength: TeamStrength | None = None,
         elite=None,
         odds_overrides: dict[tuple[int, int], tuple[float, float]] | None = None,
+        prior_stats: dict[int, dict] | None = None,
     ) -> None:
+        # Fjorårets tall per spiller. FPL nullstiller totalene ved sesongstart, så
+        # uten dette kaster modellen bort alt den vet i august og september.
+        self.prior_stats = prior_stats or {}
         self.bootstrap = bootstrap
         self.raw_fixtures = fixtures
         self.blend_ppg = blend_ppg
@@ -340,10 +344,16 @@ class ProjectionModel:
         sub_minutes = max(0.0, minutes - starts * start_minutes)
         observed_sub_rate = min(1.0, (sub_minutes / SUB_MINUTES) / games) if games else 0.0
 
-        # Vekt egne tall mot prisbasert forventning ut fra hvor mye vi har sett.
+        # Vekt egne tall mot forventningen ut fra hvor mye vi har sett i år.
         evidence = min(1.0, (starts + minutes / 90.0) / ROLE_EVIDENCE_GAMES)
         share = self._price_share(element)
         prior_start_rate = 0.10 + 0.60 * share
+
+        # Har vi fjoråret, er det et langt bedre holdepunkt enn prisen alene.
+        last_season = self.prior_stats.get(element["id"])
+        if last_season and last_season.get("games"):
+            last_rate = min(1.0, last_season["starts"] / last_season["games"])
+            prior_start_rate = 0.75 * last_rate + 0.25 * prior_start_rate
 
         p_start = evidence * observed_start_rate + (1 - evidence) * prior_start_rate
         p_sub = evidence * observed_sub_rate + (1 - evidence) * 0.20
@@ -369,11 +379,22 @@ class ProjectionModel:
         return max(0.0, min(1.0, p_start * (1.0 + nudge)))
 
     def _rate(self, element: dict, key: str, prior_key: str) -> float:
-        """Spillerens egen rate krympet mot posisjonssnittet."""
+        """Spillerens egen rate krympet mot det vi ellers vet om ham.
+
+        Krympingen går mot fjorårets rate hvis vi har den, ellers mot medianen
+        for posisjonen. I august er forskjellen stor: uten fjoråret blir en
+        etablert spiller behandlet som en tilfeldig spiller på samme posisjon.
+        """
         minutes = _f(element["minutes"])
         weight = minutes / (minutes + RATE_SHRINK_MINUTES)
         own = _f(element.get(key))
         prior = self._priors[element["element_type"]][prior_key]
+
+        last_season = self.prior_stats.get(element["id"])
+        if last_season and prior_key in last_season:
+            last_minutes = last_season.get("minutes", 0.0)
+            trust = last_minutes / (last_minutes + RATE_SHRINK_MINUTES)
+            prior = trust * last_season[prior_key] + (1 - trust) * prior
         return weight * own + (1 - weight) * prior
 
     def _build_players(self) -> None:
@@ -439,10 +460,12 @@ class ProjectionModel:
 
         per_90 = max(1.0, minutes_played / 90.0)
         prior = self._priors[player.position]
-        bonus90 = confidence * (_f(element["bonus"]) / per_90) + (1 - confidence) * prior["bonus90"]
+        last_season = self.prior_stats.get(element["id"]) or {}
+        bonus_prior = last_season.get("bonus90", prior["bonus90"])
+        cards_prior = last_season.get("cards90", prior["cards90"])
+        bonus90 = confidence * (_f(element["bonus"]) / per_90) + (1 - confidence) * bonus_prior
         cards90 = (
-            confidence * (_f(element["yellow_cards"]) / per_90)
-            + (1 - confidence) * prior["cards90"]
+            confidence * (_f(element["yellow_cards"]) / per_90) + (1 - confidence) * cards_prior
         )
 
         last = self.events[-1]["id"]

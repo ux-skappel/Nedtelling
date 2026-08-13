@@ -391,6 +391,40 @@ def cmd_autopilot(args) -> None:
         print("\nTørrkjøring. Legg til --confirm for å sende inn oppstillingen.")
 
 
+def cmd_backtest(args) -> None:
+    from .backtest.engine import run_backtest
+    from .backtest.history import load_season, previous_season
+
+    print(f"Laster {args.season} fra arkivet ...")
+    season = load_season(args.season)
+    prior = None
+    if not args.no_prior:
+        name = args.prior_season or previous_season(args.season)
+        try:
+            prior = load_season(name)
+            print(f"Bruker {name} som utgangspunkt for runde 1.")
+        except RuntimeError:
+            print(f"Fant ikke {name}; runde 1 settes uten historikk.")
+
+    print(f"Spiller gjennom sesongen (horisont {args.horizon}, grense {args.min_gain})\n")
+    print(report.backtest_header())
+    result = run_backtest(
+        season,
+        prior=prior,
+        start_event=args.from_gw,
+        end_event=args.to_gw,
+        horizon=args.horizon,
+        min_gain=args.min_gain,
+        max_transfers=args.max_transfers,
+        allow_hits=args.allow_hits,
+        blend_ppg=args.blend,
+        use_prior_stats=args.priors,
+        on_gameweek=lambda gw: print(report.backtest_row(gw)),
+    )
+    print()
+    print(report.backtest_summary(result))
+
+
 def cmd_config(args) -> None:
     if args.entry_id:
         auth.set_entry_id(args.entry_id)
@@ -578,6 +612,22 @@ def build_parser() -> argparse.ArgumentParser:
     autopilot.add_argument("--allow-hits", action="store_true", help="godta minuspoeng")
     autopilot.add_argument("--confirm", action="store_true", help="gjennomfør på ekte")
     autopilot.set_defaults(func=cmd_autopilot)
+
+    backtest = add_parser("backtest", "spill gjennom en tidligere sesong med modellen")
+    backtest.add_argument("--season", default="2025-26", help="sesong å teste (2025-26)")
+    backtest.add_argument("--prior-season", help="sesongen som brukes som utgangspunkt i runde 1")
+    backtest.add_argument("--no-prior", action="store_true", help="start uten fjorårets tall")
+    backtest.add_argument("--from-gw", type=int, default=1, help="første runde (1)")
+    backtest.add_argument("--to-gw", type=int, default=None, help="siste runde")
+    backtest.add_argument("--min-gain", type=float, default=1.0, help="byttegrense (1.0)")
+    backtest.add_argument("--max-transfers", type=int, default=2, help="maks bytter per runde (2)")
+    backtest.add_argument("--allow-hits", action="store_true", help="godta minuspoeng")
+    backtest.add_argument(
+        "--priors",
+        action="store_true",
+        help="la fjorårets rater krympe anslagene (målt til å skade, se README)",
+    )
+    backtest.set_defaults(func=cmd_backtest)
 
     config = add_parser("config", "lagre lag-ID")
     config.add_argument("--entry-id", type=int)

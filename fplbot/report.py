@@ -167,6 +167,46 @@ def autopilot_block(decision: AutopilotDecision, events: list[int]) -> str:
     return "\n".join(lines)
 
 
+def backtest_header() -> str:
+    return (
+        f"{'GW':>3}{'Poeng':>7}{'Hits':>6}{'Byt':>5}{'Benk':>6}{'Sub':>5}"
+        f"{'xP':>7}{'Verdi':>8}  Kaptein\n" + "-" * 68
+    )
+
+
+def backtest_row(gameweek) -> str:
+    return (
+        f"{gameweek.event:>3}{gameweek.net_points:>7}{gameweek.hits * 4:>6}"
+        f"{gameweek.transfers:>5}{gameweek.bench_points:>6}{gameweek.autosubs:>5}"
+        f"{gameweek.projected:>7.1f}{gameweek.squad_value / 10:>8.1f}"
+        f"  {gameweek.captain[:16]} ({gameweek.captain_points})"
+    )
+
+
+def backtest_summary(result) -> str:
+    bias, error, match = result.projection_error()
+    best = max(result.gameweeks, key=lambda gw: gw.net_points, default=None)
+    worst = min(result.gameweeks, key=lambda gw: gw.net_points, default=None)
+    lines = [
+        "=" * 68,
+        (
+            f"Sesong {result.season}: {result.total_points} poeng på "
+            f"{len(result.gameweeks)} runder ({result.points_per_gameweek:.1f} per runde)"
+        ),
+        f"Bytter: {result.total_transfers}, minuspoeng: {result.total_hits * 4}",
+    ]
+    if best and worst:
+        lines.append(
+            f"Beste runde: GW{best.event} med {best.net_points}. "
+            f"Svakeste: GW{worst.event} med {worst.net_points}."
+        )
+    lines.append(
+        f"Treffsikkerhet per spiller: bommer i snitt {error:.2f} poeng, "
+        f"skjevhet {bias:+.2f}, korrelasjon {match:.3f}"
+    )
+    return "\n".join(lines)
+
+
 def header(model: ProjectionModel, events: list[int], entry: dict | None = None) -> str:
     event = events[0]
     deadline = model.deadline(event)

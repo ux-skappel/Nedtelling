@@ -104,9 +104,9 @@ class FplApi:
         path = "fixtures/" if event is None else f"fixtures/?event={event}"
         return self._get(path)
 
-    def element_summary(self, player_id: int) -> dict:
-        """Kampfor-kamp-historikk og kommende kamper for én spiller."""
-        return self._get(f"element-summary/{player_id}/")
+    def element_summary(self, player_id: int, ttl: int | None = None) -> dict:
+        """Kamp-for-kamp-historikk, tidligere sesonger og kommende kamper."""
+        return self._get(f"element-summary/{player_id}/", ttl=ttl)
 
     def entry(self, entry_id: int) -> dict:
         """Offentlig info om et lag (navn, poeng, rank)."""
