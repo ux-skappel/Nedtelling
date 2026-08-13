@@ -284,3 +284,30 @@ def test_hours_until_handles_past_deadlines():
     assert hours_until("2026-08-21T17:30:00Z", now) < 0
     later = now + timedelta(hours=2)
     assert hours_until("2026-08-23T00:00:00Z", later) > 0
+
+
+# ------------------------------------------------------------------ innlogging
+
+
+def test_cookie_value_picks_out_a_named_cookie():
+    from fplbot.api import FplApi
+
+    api = FplApi(cookie="pl_profile=abc; csrftoken=TOKEN123; sessionid=xyz", use_cache=False)
+    assert api.cookie_value("csrftoken") == "TOKEN123"
+    assert api.cookie_value("pl_profile") == "abc"
+    assert api.cookie_value("finnes-ikke") is None
+
+
+def test_cookie_value_without_cookie():
+    from fplbot.api import FplApi
+
+    assert FplApi(use_cache=False).cookie_value("csrftoken") is None
+
+
+def test_post_refuses_a_cookie_without_csrf_token():
+    """Uten csrftoken ville FPL svart 403; vi sier fra før vi sender."""
+    from fplbot.api import FplApi, FplError
+
+    api = FplApi(cookie="pl_profile=abc; sessionid=xyz", use_cache=False)
+    with pytest.raises(FplError, match="csrftoken"):
+        api.submit_transfers({"entry": 1})

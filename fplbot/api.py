@@ -41,11 +41,22 @@ class FplApi:
         self.cache_dir = Path(cache_dir)
         self.ttl = ttl
         self.use_cache = use_cache
+        self.cookie = cookie
         self.session = requests.Session()
         self.session.headers.update({"User-Agent": USER_AGENT, "Accept": "application/json"})
         if cookie:
             self.session.headers["Cookie"] = cookie
         self._memo: dict[str, Any] = {}
+
+    def cookie_value(self, name: str) -> str | None:
+        """Plukker ut én cookie fra strengen vi fikk fra nettleseren."""
+        if not self.cookie:
+            return None
+        for part in self.cookie.split(";"):
+            key, _, value = part.strip().partition("=")
+            if key == name:
+                return value
+        return None
 
     # ------------------------------------------------------------------ intern
 
@@ -89,6 +100,17 @@ class FplApi:
             "Origin": "https://fantasy.premierleague.com",
             "X-Requested-With": "XMLHttpRequest",
         }
+        # FPL kjører på Django, som avviser innloggede POST-kall uten at
+        # csrftoken-cookien gjentas i denne headeren.
+        csrf = self.cookie_value("csrftoken")
+        if csrf:
+            headers["X-CSRFToken"] = csrf
+        elif self.cookie:
+            raise FplError(
+                "Cookien mangler csrftoken, og FPL avviser innsending uten den. "
+                "Kopier hele Cookie-headeren fra nettleseren på nytt."
+            )
+
         resp = self.session.post(url, json=payload, headers=headers, timeout=30)
         if not resp.ok:
             raise FplError(f"{resp.status_code} fra POST {url}: {resp.text[:500]}")
