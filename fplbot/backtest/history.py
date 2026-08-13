@@ -224,7 +224,9 @@ class Season:
                     continue  # spilleren finnes ikke i sesongen vi tester
                 element_key, cost, team, position = match
 
-            first, _, last = entry["name"].partition(" ")
+            # FPL viser stort sett etternavnet, så vi tar siste ledd:
+            # "Bruno Borges Fernandes" blir "Fernandes", ikke "Borges Fernandes".
+            first, _, last = entry["name"].rpartition(" ")
             elements.append(
                 {
                     "id": element_key,

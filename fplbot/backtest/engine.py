@@ -39,15 +39,39 @@ class GameweekResult:
     projected: float
     squad_value: int
     bank: int
+    starters: list[dict] = field(default_factory=list)
+    bench: list[dict] = field(default_factory=list)
+    moves: list[dict] = field(default_factory=list)
 
     @property
     def net_points(self) -> int:
         return self.points - self.hits * TRANSFER_HIT_COST
 
+    def to_dict(self) -> dict:
+        return {
+            "event": self.event,
+            "points": self.points,
+            "net_points": self.net_points,
+            "hits": self.hits,
+            "transfers": self.transfers,
+            "captain": self.captain,
+            "captain_points": self.captain_points,
+            "bench_points": self.bench_points,
+            "autosubs": self.autosubs,
+            "projected": round(self.projected, 2),
+            "squad_value": self.squad_value,
+            "bank": self.bank,
+            "starters": self.starters,
+            "bench": self.bench,
+            "moves": self.moves,
+        }
+
 
 @dataclass
 class BacktestResult:
     season: str
+    label: str = "standard"
+    settings: dict = field(default_factory=dict)
     gameweeks: list[GameweekResult] = field(default_factory=list)
     projection_pairs: list[tuple[float, int]] = field(default_factory=list)
 
@@ -66,6 +90,26 @@ class BacktestResult:
     @property
     def points_per_gameweek(self) -> float:
         return self.total_points / len(self.gameweeks) if self.gameweeks else 0.0
+
+    def to_dict(self) -> dict:
+        bias, error, match = self.projection_error()
+        return {
+            "season": self.season,
+            "label": self.label,
+            "settings": self.settings,
+            "total_points": self.total_points,
+            "points_per_gameweek": round(self.points_per_gameweek, 2),
+            "total_transfers": self.total_transfers,
+            "total_hits": self.total_hits,
+            "hit_cost": self.total_hits * TRANSFER_HIT_COST,
+            "bench_points": sum(gw.bench_points for gw in self.gameweeks),
+            "projection": {
+                "bias": round(bias, 3),
+                "mean_error": round(error, 3),
+                "correlation": round(match, 3),
+            },
+            "gameweeks": [gw.to_dict() for gw in self.gameweeks],
+        }
 
     def projection_error(self) -> tuple[float, float, float]:
         """Returnerer (snittavvik, snittbom, korrelasjon) for xP mot faktiske poeng."""
@@ -133,11 +177,31 @@ def apply_autosubs(
     return final, swaps
 
 
-def score_gameweek(
-    squad: list[Player],
-    season: Season,
-    event: int,
-) -> tuple[int, int, str, int, int, float]:
+@dataclass
+class GameweekScore:
+    points: int
+    captain: str
+    captain_points: int
+    bench_points: int
+    autosubs: int
+    projected: float
+    starters: list[dict]
+    bench: list[dict]
+
+
+def _player_card(player: Player, season: Season, event: int, captain: bool = False) -> dict:
+    return {
+        "name": player.name,
+        "team": player.team_short,
+        "position": player.position_name,
+        "price": round(player.price, 1),
+        "points": season.actual_points(player.id, event),
+        "projected": round(player.xp.get(event, 0.0), 2),
+        "captain": captain,
+    }
+
+
+def score_gameweek(squad: list[Player], season: Season, event: int) -> GameweekScore:
     """Setter laget, kjører autobytter og teller poengene som faktisk kom."""
     lineup = pick_lineup(squad, event)
     final_xi, swaps = apply_autosubs(lineup.starters, lineup.bench, season, event)
@@ -152,9 +216,18 @@ def score_gameweek(
     points += captain_points
 
     bench = [p for p in squad if p not in final_xi]
-    bench_points = sum(season.actual_points(p.id, event) for p in bench)
-    projected = sum(p.xp.get(event, 0.0) for p in lineup.starters) + captain.xp.get(event, 0.0)
-    return points, captain_points, captain.name, bench_points, swaps, projected
+    return GameweekScore(
+        points=points,
+        captain=captain.name,
+        captain_points=captain_points,
+        bench_points=sum(season.actual_points(p.id, event) for p in bench),
+        autosubs=swaps,
+        projected=(
+            sum(p.xp.get(event, 0.0) for p in lineup.starters) + captain.xp.get(event, 0.0)
+        ),
+        starters=[_player_card(p, season, event, p is captain) for p in final_xi],
+        bench=[_player_card(p, season, event) for p in bench],
+    )
 
 
 def run_backtest(
@@ -167,11 +240,25 @@ def run_backtest(
     max_transfers: int = 2,
     allow_hits: bool = False,
     blend_ppg: float = 0.25,
-    use_prior_stats: bool = True,
+    # Målt til å skade: se README. Står av med vilje, men kan slås på for
+    # å etterprøve hypotesen på andre sesonger.
+    use_prior_stats: bool = False,
+    label: str = "standard",
     on_gameweek=None,
 ) -> BacktestResult:
     """Spiller gjennom sesongen med modellen ved rattet."""
-    result = BacktestResult(season=season.season)
+    result = BacktestResult(
+        season=season.season,
+        label=label,
+        settings={
+            "horizon": horizon,
+            "min_gain": min_gain,
+            "max_transfers": max_transfers,
+            "allow_hits": allow_hits,
+            "blend_ppg": blend_ppg,
+            "prior_stats": use_prior_stats,
+        },
+    )
     end_event = end_event or max(season.events)
     priors = prior_profile(prior, season) if (prior and use_prior_stats) else {}
 
@@ -199,6 +286,7 @@ def run_backtest(
 
         transfers_made = 0
         hits = 0
+        moves: list[dict] = []
 
         if squad is None:
             initial = optimize_squad(model, events, budget=bank, min_availability=0.0)
@@ -227,6 +315,16 @@ def run_backtest(
             if worth_it and plan.hits and not allow_hits:
                 worth_it = False
             if worth_it:
+                for out_player, in_player in zip(plan.out, plan.incoming, strict=True):
+                    moves.append(
+                        {
+                            "out": out_player.name,
+                            "out_team": out_player.team_short,
+                            "in": in_player.name,
+                            "in_team": in_player.team_short,
+                            "position": in_player.position_name,
+                        }
+                    )
                 for out_player in plan.out:
                     bank += prices[out_player.id]
                     purchase_prices.pop(out_player.id, None)
@@ -240,9 +338,7 @@ def run_backtest(
         free_transfers = min(MAX_SAVED_TRANSFERS, free_transfers - transfers_made + 1)
         free_transfers = max(1, free_transfers)
 
-        points, captain_points, captain_name, bench_points, swaps, projected = score_gameweek(
-            squad, season, event
-        )
+        score = score_gameweek(squad, season, event)
         for player in squad:
             result.projection_pairs.append(
                 (player.xp.get(event, 0.0), season.actual_points(player.id, event))
@@ -250,16 +346,19 @@ def run_backtest(
 
         gameweek = GameweekResult(
             event=event,
-            points=points,
+            points=score.points,
             hits=hits,
             transfers=transfers_made,
-            captain=captain_name,
-            captain_points=captain_points,
-            bench_points=bench_points,
-            autosubs=swaps,
-            projected=projected,
+            captain=score.captain,
+            captain_points=score.captain_points,
+            bench_points=score.bench_points,
+            autosubs=score.autosubs,
+            projected=score.projected,
             squad_value=sum(p.cost for p in squad),
             bank=bank,
+            starters=score.starters,
+            bench=score.bench,
+            moves=moves,
         )
         result.gameweeks.append(gameweek)
         if on_gameweek:

@@ -172,6 +172,40 @@ Til sammenlikning lå snittmanageren rundt 2000-2100 den sesongen. Tallet er
 høyt nok til å være nyttig og lavt nok til å være troverdig — hadde det vist
 3000, ville det vært et tegn på at data lakk inn fra framtiden.
 
+### Fire sesonger, seks byttepolicyer
+
+`scripts/run_backtests.py` kjører hele rutenettet parallelt og lagrer resultatet
+som JSON, og `scripts/build_dashboard.py` legger dataene inn i et dashboard du
+kan bla i:
+
+```bash
+python scripts/run_backtests.py --out data/backtests.json
+python scripts/build_dashboard.py          # gir dashboard/index.html
+```
+
+Poeng per sesong. Arkivet har xG, xA og starter fra og med 2022/23; eldre
+sesonger mangler dem, og defensive contributions gjaldt først fra 2025/26.
+
+| Sesong | hold | forsiktig | standard | aktiv | kort sikt | lang sikt |
+| --- | --- | --- | --- | --- | --- | --- |
+| 2022-23 | 1553 | 1936 | 1963 | 2053 | **2064** | 2026 |
+| 2023-24 | 1786 | 2148 | **2277** | 2149 | 2271 | 2223 |
+| 2024-25 | 1912 | **2307** | 2184 | 2201 | 2091 | 2184 |
+| 2025-26 | 1481 | 2028 | **2307** | 2296 | 2296 | 2290 |
+| **Snitt** | 1683 | 2105 | **2183** | 2175 | 2181 | 2181 |
+
+To ting faller ut av dette, og det ene er langt viktigere enn det andre.
+
+**Å bytte i det hele tatt er verdt rundt 500 poeng i sesongen.** «Hold» setter
+troppen i runde 1 og rører den aldri igjen, og taper stort hver eneste sesong.
+Det er hele avstanden mellom en tropp som vedlikeholdes og en som ikke gjør det.
+
+**Hvilken byttepolicy du velger betyr nesten ingenting.** Standard, aktiv, kort
+sikt og lang sikt lander innenfor åtte poeng av hverandre i snitt — mindre enn
+svingningen mellom to sesonger med samme policy. Ingen av dem vinner mer enn én
+sesong hver. Å plukke fjorårets vinner er å tilpasse seg støy, og derfor er
+standardinnstillingen stående.
+
 ### Hva backtesten ikke kan si noe om
 
 * **Skader.** Arkivet har ikke spillerstatus per runde, så backtesten vet ikke
