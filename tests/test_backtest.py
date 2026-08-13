@@ -233,3 +233,69 @@ def test_autosub_cannot_use_a_benchwarmer_who_also_blanked(squad_model):
     final, swaps = apply_autosubs(starters, bench, FakeSeason(minutes), event=1)
     assert swaps == 0
     assert squad_model.by_id(11) in final
+
+
+# -------------------------------------------------------------------- revisjon
+
+
+def test_audit_passes_on_clean_snapshots():
+    from fplbot.backtest.audit import audit_season
+
+    report = audit_season(make_season(events=5))
+    assert report.clean
+    assert report.events_checked == 4
+
+
+def test_audit_catches_a_planted_result_leak():
+    """Revisjonen må selv kunne fange lekkasje vi planter med vilje."""
+    from fplbot.backtest.audit import audit_season
+
+    season = make_season(events=5)
+    original = season._masked_fixtures
+
+    def leaky(event: int):
+        # Later som resultatene fra kommende runder allerede er kjent.
+        fixtures = original(event)
+        for fixture in fixtures:
+            fixture["finished"] = True
+            fixture["team_h_score"] = 2
+        return fixtures
+
+    season._masked_fixtures = leaky
+    report = audit_season(season)
+    assert not report.clean
+    assert any("resultat" in f or "ferdigspilt" in f for f in report.findings)
+
+
+def test_audit_catches_a_planted_totals_leak():
+    """Totaler som rommer runden vi står foran skal slå ut."""
+    from fplbot.backtest.audit import audit_season
+
+    season = make_season(events=5)
+    original = season._aggregate
+
+    def leaky(through: int, price_season):
+        return original(through=through + 1, price_season=price_season)
+
+    season._aggregate = leaky
+    report = audit_season(season)
+    assert not report.clean
+    assert any("summen av rundene før" in f for f in report.findings)
+
+
+def test_controls_change_the_projections():
+    from fplbot.backtest import controls
+    from tests.test_model import make_bootstrap, make_element, make_fixtures
+
+    model = ProjectionModel(
+        make_bootstrap([make_element(1, MID)]), make_fixtures(), blend_ppg=0.0
+    )
+    season = make_season(events=3)
+
+    before = model.by_id(1).xp[1]
+    controls.price_only()(model, 1, season)
+    assert model.by_id(1).xp[1] == model.by_id(1).cost / 20.0
+    assert model.by_id(1).xp[1] != before
+
+    controls.scrambled(seed=3)(model, 1, season)
+    assert 0.0 <= model.by_id(1).xp[1] <= 6.0

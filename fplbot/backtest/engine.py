@@ -244,6 +244,9 @@ def run_backtest(
     # å etterprøve hypotesen på andre sesonger.
     use_prior_stats: bool = False,
     label: str = "standard",
+    # Kontrollknapp for lekkasjetesting: får bytte ut modellens anslag før
+    # troppen settes. Se backtest/controls.py.
+    projection_override=None,
     on_gameweek=None,
 ) -> BacktestResult:
     """Spiller gjennom sesongen med modellen ved rattet."""
@@ -282,6 +285,8 @@ def run_backtest(
             strength=strength,
             prior_stats=priors if event > 1 else None,
         )
+        if projection_override is not None:
+            projection_override(model, event, season)
         events = model.horizon(horizon, start=event)
 
         transfers_made = 0

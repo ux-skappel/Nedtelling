@@ -425,6 +425,43 @@ def cmd_backtest(args) -> None:
     print(report.backtest_summary(result))
 
 
+def cmd_audit(args) -> None:
+    from .backtest import controls
+    from .backtest.audit import audit_season
+    from .backtest.engine import run_backtest
+    from .backtest.history import load_season, previous_season
+
+    season = load_season(args.season)
+    print(f"Reviderer snapshotene for {args.season} ...\n")
+    report = audit_season(season)
+    print(report.summary())
+    if not report.clean:
+        raise SystemExit(1)
+
+    if args.quick:
+        return
+
+    try:
+        prior = load_season(previous_season(args.season))
+    except RuntimeError:
+        prior = None
+
+    print("\nKontrollforsøk (samme rigg, ulike anslag):\n")
+    experiments = [
+        ("Terningkast (ingen info)", controls.scrambled(seed=args.seed)),
+        ("Bare pris", controls.price_only()),
+        ("Ekte modell", None),
+        ("Fasit (lekkasje med vilje)", controls.oracle()),
+    ]
+    for label, override in experiments:
+        result = run_backtest(season, prior=prior, projection_override=override)
+        print(f"  {label:<28}{result.total_points:5} poeng")
+    print(
+        "\nGulvet skal ligge langt under den ekte modellen, og fasiten langt over. "
+        "\nEr avstandene små, gir riggen bort poeng uavhengig av hvem som velger."
+    )
+
+
 def cmd_config(args) -> None:
     if args.entry_id:
         auth.set_entry_id(args.entry_id)
@@ -628,6 +665,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="la fjorårets rater krympe anslagene (målt til å skade, se README)",
     )
     backtest.set_defaults(func=cmd_backtest)
+
+    audit = add_parser("audit", "let etter lekkasje fra framtiden i backtesten")
+    audit.add_argument("--season", default="2025-26", help="sesong å revidere (2025-26)")
+    audit.add_argument("--quick", action="store_true", help="bare revisjonen, uten kontrollforsøk")
+    audit.add_argument("--seed", type=int, default=1, help="frø for terningkastet")
+    audit.set_defaults(func=cmd_audit)
 
     config = add_parser("config", "lagre lag-ID")
     config.add_argument("--entry-id", type=int)

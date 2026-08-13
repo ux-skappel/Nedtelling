@@ -31,6 +31,7 @@ Uten installasjon virker `python -m fplbot.cli ...` like godt.
 | `fplbot report` | Alt sammen i én rapport før fristen |
 | `fplbot elite` | Hva de best rangerte managerne i verden eier og kapteiner |
 | `fplbot backtest` | Spiller gjennom en tidligere sesong og teller poengene |
+| `fplbot audit` | Etterprøver at backtesten ikke har sett inn i framtiden |
 | `fplbot autopilot` | Handler av seg selv rett før fristen, hvis det trengs |
 | `fplbot submit-lineup` | Sender inn oppstillingen (krever cookie og `--confirm`) |
 | `fplbot submit-transfers` | Gjennomfører byttene (krever cookie og `--confirm`) |
@@ -205,6 +206,52 @@ sikt og lang sikt lander innenfor åtte poeng av hverandre i snitt — mindre en
 svingningen mellom to sesonger med samme policy. Ingen av dem vinner mer enn én
 sesong hver. Å plukke fjorårets vinner er å tilpasse seg støy, og derfor er
 standardinnstillingen stående.
+
+### Kan modellen ha kikket framover?
+
+Hele backtesten hviler på én antakelse: at modellen aldri fikk se noe fra
+runden den skulle spille. `fplbot audit` etterprøver den på to måter.
+
+```bash
+fplbot audit --season 2025-26          # revisjon + kontrollforsøk
+fplbot audit --season 2024-25 --quick  # bare revisjonen
+```
+
+**Revisjonen** regner ut fasiten på nytt, uavhengig av snapshot-koden, og
+sammenlikner. For hver runde telles minutter, starter, poeng, bonus og kort opp
+rett fra radene, og resultatet må stemme på desimalen. Samtidig sjekkes at ingen
+kamp fra runden og utover er merket ferdigspilt eller har resultat. Over de fire
+sesongene går 110 072 spiller-snapshots gjennom uten avvik. Revisjonen har egne
+tester som planter lekkasje med vilje, så vi vet at den faktisk slår ut.
+
+**Kontrollforsøkene** angriper det fra utsiden: samme rigg, ulike anslag.
+
+| Anslag | Poeng 2025/26 |
+| --- | --- |
+| Terningkast (ingen informasjon) | 895 |
+| Bare pris | 1320 |
+| Ekte modell | **2307** |
+| Fasit (lekkasje med vilje) | 3671 |
+
+Terningkastet er gulvet: gir riggen bort poeng uansett hvem som velger, ville
+det tallet vært høyt. Det er det ikke. Fasit-raden er like viktig — den viser
+hvordan et resultat med framtidskunnskap faktisk ser ut, 59 % over den ekte
+modellen. Uten det utslaget ville vi ikke visst om vi i det hele tatt er i stand
+til å oppdage at noen kikker.
+
+Den ekte modellen ligger med god margin til begge. Det er så nær en garanti man
+kommer.
+
+### Én lekkasje som ikke lar seg fikse
+
+Kampoppsettet i arkivet er det endelige. Blir en kamp utsatt i november og lagt
+til en annen runde, står den nye datoen der fra første stund — så modellen
+«vet» om en blank eller dobbel runde før den ble kunngjort. Revisjonen kan ikke
+fange dette, for dataene registrerer ikke *når* oppsettet ble endret.
+
+Effekten ser ut til å være liten: hadde slik kunnskap vært verdt noe, ville
+lang horisont slått kort. Den gjør ikke det — åtte runder fram gir 2290 poeng
+mot 2296 for to runder fram. Men det er et argument, ikke et bevis.
 
 ### Hva backtesten ikke kan si noe om
 
