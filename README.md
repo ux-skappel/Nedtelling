@@ -207,6 +207,41 @@ svingningen mellom to sesonger med samme policy. Ingen av dem vinner mer enn én
 sesong hver. Å plukke fjorårets vinner er å tilpasse seg støy, og derfor er
 standardinnstillingen stående.
 
+### Tusen kjøringer, og hvor de havnet i verden
+
+```bash
+python scripts/run_simulation.py --runs 1000 --out data/simulation.json
+python scripts/build_dashboard.py --data data/simulation.json \
+    --template dashboard/simulation.html --out dashboard/simulering.html
+```
+
+Backtesten er deterministisk, så tusen like kjøringer ville gitt tusen like
+svar. To ting varierer derfor: **innstillingene** (byttegrense, horisont, maks
+bytter trekkes tilfeldig, fordi standardverdiene ble valgt med skjønn) og
+**anslagene** (xP forstyrres med støy, fordi modellen er omtrent riktig og ikke
+nøyaktig riktig). 250 kjøringer per sesong, 49 minutter på fire kjerner.
+
+Plasseringene er ekte: FPL har ingen tabell over hva en poengsum var verdt, så
+kurven bygges av noen hundre tilfeldig trukne lag per sesong, hvert med sin egen
+poengsum og plassering. Skjevhet i utvalget forkludrer ikke kurven — hvert par
+er sant uansett hvilket lag det kom fra.
+
+| Sesong | Median poeng | Spenn (p10–p90) | Median plassering | Beste kjøring | Deltakere |
+| --- | --- | --- | --- | --- | --- |
+| 2022-23 | 1901 | 1726–2063 | 6 441 119 | 2 092 465 | 11 394 904 |
+| 2023-24 | 2186 | 2088–2271 | 2 376 790 | 544 553 | 10 764 159 |
+| 2024-25 | 2138 | 2002–2273 | 3 759 451 | 886 220 | 11 305 839 |
+| 2025-26 | 2132 | 2033–2239 | **1 774 781** | 52 014 | 12 789 506 |
+
+Det mest slående er hvor lite poengsummen svinger og hvor mye plasseringen
+gjør. Boten scorer 2132 i 2025/26 og 2138 i 2024/25 — seks poengs forskjell —
+men det er topp 14 % det ene året og topp 33 % det andre. Feltet scorer helt
+ulikt fra år til år, og kurven er så bratt at noen få poeng flytter deg
+hundretusener av plasser.
+
+Med andre ord: boten lander stabilt i øvre halvdel, men ikke i nærheten av
+toppen. Medianen tilsvarer en habil menneskelig manager, ikke en god en.
+
 ### Kan modellen ha kikket framover?
 
 Hele backtesten hviler på én antakelse: at modellen aldri fikk se noe fra

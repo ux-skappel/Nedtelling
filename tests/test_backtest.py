@@ -299,3 +299,64 @@ def test_controls_change_the_projections():
 
     controls.scrambled(seed=3)(model, 1, season)
     assert 0.0 <= model.by_id(1).xp[1] <= 6.0
+
+
+# ---------------------------------------------------------------- rangering
+
+
+def make_curve():
+    from fplbot.backtest.rank import RankCurve
+
+    # Sortert fra flest poeng til færrest, slik build_curves lager dem.
+    return RankCurve(
+        season="2025/26",
+        points=[2500, 2400, 2300, 2200, 2000, 1500],
+        ranks=[1_000, 10_000, 100_000, 500_000, 2_000_000, 9_000_000],
+    )
+
+
+def test_rank_curve_is_monotone():
+    """Flere poeng skal aldri gi dårligere plassering."""
+    curve = make_curve()
+    from itertools import pairwise
+
+    ranks = [curve.rank_for(p) for p in range(1500, 2501, 50)]
+    assert all(a >= b for a, b in pairwise(ranks))
+
+
+def test_rank_curve_interpolates_between_points():
+    curve = make_curve()
+    between = curve.rank_for(2350)
+    assert 10_000 < between < 100_000
+
+
+def test_rank_curve_clamps_outside_the_samples():
+    curve = make_curve()
+    assert curve.rank_for(9999) == 1_000  # bedre enn alt vi har sett
+    assert curve.rank_for(0) == 9_000_000  # svakere enn alt vi har sett
+
+
+def test_rank_curve_hits_the_sampled_points():
+    curve = make_curve()
+    for points, rank in zip(curve.points, curve.ranks, strict=True):
+        assert curve.rank_for(points) == pytest.approx(rank, rel=0.02)
+
+
+def test_percentile_follows_rank():
+    curve = make_curve()
+    assert curve.percentile_for(2500) > curve.percentile_for(2000)
+    assert 0 <= curve.percentile_for(1500) <= 100
+
+
+def test_empty_curve_answers_nothing():
+    from fplbot.backtest.rank import RankCurve
+
+    empty = RankCurve(season="2025/26")
+    assert empty.rank_for(2300) is None
+    assert empty.percentile_for(2300) is None
+
+
+def test_season_key_matches_fpl_format():
+    from fplbot.backtest.rank import season_key
+
+    assert season_key("2025-26") == "2025/26"

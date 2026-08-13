@@ -247,6 +247,10 @@ def run_backtest(
     # Kontrollknapp for lekkasjetesting: får bytte ut modellens anslag før
     # troppen settes. Se backtest/controls.py.
     projection_override=None,
+    # Gjenbruk av ferdigbygde modeller på tvers av kjøringer. Modellen for en
+    # runde avhenger bare av sesongen og innstillingene, ikke av troppen, så
+    # ved simulering av mange kjøringer er det halvparten av arbeidet spart.
+    model_cache: dict | None = None,
     on_gameweek=None,
 ) -> BacktestResult:
     """Spiller gjennom sesongen med modellen ved rattet."""
@@ -271,20 +275,33 @@ def run_backtest(
     free_transfers = 1
 
     for event in range(start_event, end_event + 1):
-        bootstrap, fixtures = season.snapshot(event, prior=prior)
-        finished = [e["id"] for e in bootstrap["events"] if e["finished"]]
-        strength = fit_team_strength(
-            fixtures, [t["id"] for t in bootstrap["teams"]], max(finished) if finished else 0
-        )
-        # I runde 1 er snapshotet allerede fjorårets tall, så da ville historikken
-        # blitt talt to ganger.
-        model = ProjectionModel(
-            bootstrap,
-            fixtures,
-            blend_ppg=blend_ppg,
-            strength=strength,
-            prior_stats=priors if event > 1 else None,
-        )
+        cached = model_cache.get(event) if model_cache is not None else None
+        if cached is not None:
+            # Forrige kjøring kan ha skrevet over anslagene, så de settes tilbake.
+            model, pristine = cached
+            for player_id, projection in pristine.items():
+                model.players[player_id].xp = dict(projection)
+        else:
+            bootstrap, fixtures = season.snapshot(event, prior=prior)
+            finished = [e["id"] for e in bootstrap["events"] if e["finished"]]
+            strength = fit_team_strength(
+                fixtures, [t["id"] for t in bootstrap["teams"]], max(finished) if finished else 0
+            )
+            # I runde 1 er snapshotet allerede fjorårets tall, så da ville
+            # historikken blitt talt to ganger.
+            model = ProjectionModel(
+                bootstrap,
+                fixtures,
+                blend_ppg=blend_ppg,
+                strength=strength,
+                prior_stats=priors if event > 1 else None,
+            )
+            if model_cache is not None:
+                model_cache[event] = (
+                    model,
+                    {pid: dict(p.xp) for pid, p in model.players.items()},
+                )
+
         if projection_override is not None:
             projection_override(model, event, season)
         events = model.horizon(horizon, start=event)
