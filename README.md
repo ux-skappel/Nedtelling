@@ -368,6 +368,39 @@ Vil du kjøre den lokalt i stedet, holder en cron-linje:
 0 9 * * 5 cd ~/Nedtelling && fplbot report --out ~/fpl-rapport.txt
 ```
 
+## Publisering av dashboardet
+
+Dashboardene er statiske sider uten nettverkskall, så de kan ligge hvor som
+helst. `vercel.json` setter opp Vercel til å bygge dem fra dataene ved hver
+deploy:
+
+```bash
+bash scripts/build_site.sh   # gir public/index.html og public/simulering.html
+```
+
+Byggingen leser `data/backtests.json` og `data/simulation.json` og legger dem
+inn i malene. Å oppdatere dataene og pushe er dermed nok — de ferdige sidene i
+`dashboard/` er bare de samme filene sjekket inn, og CI passer på at de to ikke
+kommer i utakt.
+
+Slik kobler du repoet til Vercel, første gang:
+
+1. På [vercel.com/new](https://vercel.com/new): **Import Git Repository**, og
+   velg `ux-skappel/nedtelling`. Vercel spør om tilgang til GitHub-kontoen
+   første gang.
+2. La **Framework Preset** stå på *Other*. Byggekommando, output-katalog og
+   resten leses fra `vercel.json` — ikke overstyr dem i skjemaet.
+3. **Deploy**. Ingen miljøvariabler trengs; sida inneholder bare data som
+   allerede ligger åpent i repoet.
+
+Etterpå bygger Vercel `main` til produksjonsdomenet, og hver pull request får
+sin egen forhåndsvisning. Backtesten ligger på `/`, simuleringen på
+`/simulering`.
+
+Merk at ingenting hemmelig skal inn i disse sidene: alt i `public/` blir
+liggende åpent. Cookien og `config.json` er allerede utelatt av `.gitignore`,
+og `.vercelignore` holder boten selv utenfor det som lastes opp.
+
 ## Utvikling
 
 ```bash

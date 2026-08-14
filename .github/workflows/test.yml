@@ -16,3 +16,15 @@ jobs:
       - run: pip install -e ".[dev]"
       - run: ruff check .
       - run: pytest -q
+
+      # Samme kommando som Vercel kjører. Da slår en ødelagt mal ut her, og
+      # ikke først som en rød deploy.
+      - name: Bygg nettstedet
+        run: bash scripts/build_site.sh
+
+      # De innsjekkede sidene i dashboard/ skal svare til dataene i data/.
+      # Sprik betyr at noen har endret mal eller data uten å bygge på nytt.
+      - name: Sjekk at dashboard/ er bygget på nytt
+        run: |
+          diff -q public/index.html dashboard/index.html
+          diff -q public/simulering.html dashboard/simulering.html
