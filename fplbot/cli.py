@@ -6,6 +6,7 @@ import argparse
 import sys
 
 from . import auth, deadline, report
+from . import doctor as doctor_module
 from .api import FplApi, FplError
 from .chips import chip_advice
 from .model import Player, ProjectionModel
@@ -464,6 +465,13 @@ def cmd_audit(args) -> None:
     )
 
 
+def cmd_doctor(args) -> None:
+    checks = doctor_module.run_checks(within_hours=args.within_hours)
+    print(doctor_module.report(checks))
+    if doctor_module.has_failures(checks):
+        raise SystemExit(1)
+
+
 def cmd_config(args) -> None:
     if args.entry_id:
         auth.set_entry_id(args.entry_id)
@@ -673,6 +681,10 @@ def build_parser() -> argparse.ArgumentParser:
     audit.add_argument("--quick", action="store_true", help="bare revisjonen, uten kontrollforsøk")
     audit.add_argument("--seed", type=int, default=1, help="frø for terningkastet")
     audit.set_defaults(func=cmd_audit)
+
+    doctor = add_parser("doctor", "sjekk at boten kan styre laget ditt")
+    doctor.add_argument("--within-hours", type=float, default=4.0)
+    doctor.set_defaults(func=cmd_doctor)
 
     config = add_parser("config", "lagre lag-ID")
     config.add_argument("--entry-id", type=int)
