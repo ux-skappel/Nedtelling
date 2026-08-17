@@ -285,7 +285,7 @@ def test_c_probability_mass_is_one():
         assert abs(sum(distribution) - 1.0) < 1e-12
         assert len(distribution) == len(probabilities) + 1
 
-    starters, bench, players = build_squad(FORMATIONS[0], [GKP, DEF, MID, FWD])
+    _, _, players = build_squad(FORMATIONS[0], [GKP, DEF, MID, FWD])
     states = random_states(players, rng)
     for player in players:
         assert abs(states[player.id].mass() - 1.0) < 1e-12
@@ -436,7 +436,9 @@ def test_1_conditional_replacement_value():
     for index, player in enumerate(bench):
         # Bare den første utespilleren på benken er tilgjengelig.
         states[player.id] = (
-            MinuteStates(0.0, 0.0, 1.0, 0.0, 4.0) if index == 1 else MinuteStates(1.0, 0.0, 0.0, 0.0, 0.0)
+            MinuteStates(0.0, 0.0, 1.0, 0.0, 4.0)
+            if index == 1
+            else MinuteStates(1.0, 0.0, 0.0, 0.0, 0.0)
         )
     captain = vice = risky
     # Kapteinsbidraget holdes utenfor ved å la kapteinen være den samme spilleren
@@ -569,7 +571,7 @@ def test_6_analytic_within_three_standard_errors():
 def test_lineup_search_never_returns_an_illegal_squad():
     rng = random.Random(31337)
     for _ in range(20):
-        starters, bench, players = build_squad(
+        _, _, players = build_squad(
             FORMATIONS[rng.randrange(len(FORMATIONS))], [GKP, DEF, MID, FWD]
         )
         states = random_states(players, rng)
@@ -586,7 +588,7 @@ def test_lineup_search_never_returns_an_illegal_squad():
 
 def test_lineup_search_is_deterministic():
     rng = random.Random(8)
-    starters, bench, players = build_squad(FORMATIONS[0], [GKP, DEF, MID, FWD])
+    _, _, players = build_squad(FORMATIONS[0], [GKP, DEF, MID, FWD])
     states = random_states(players, rng)
     first = optimise_lineup(players, states, event=1)
     second = optimise_lineup(list(reversed(players)), states, event=1)
