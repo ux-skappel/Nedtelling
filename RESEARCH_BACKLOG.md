@@ -65,6 +65,70 @@ Kjøres den mot historiske data i mellomtiden, skal resultatet merkes
 
 ---
 
+## V1A — eksakt troppsevaluering
+
+**Status: `FAILED`.** Se `docs/V1A_RESULT.md`. Alle tre armene feilet på den
+forhåndsregistrerte retrospektive testen. Evaluatoren er bevist eksakt til
+1,78e−15 mot full oppregning; feilen lå i inputet.
+
+Koden beholdes (`fplbot/appearance.py`, 31 tester). Den er riktig, og den er
+klar til bruk den dagen minuttmodellen er kalibrert.
+
+---
+
+## V1A-2 — kalibrert P(0 minutter)
+
+**Status: `EXPLORATORY` / backlog. Skal ikke bygges nå.**
+
+### Hypotese
+En kalibrert `P(0 minutter)` gjør den eksakte troppsevaluatoren fra V1A
+lønnsom, fordi evaluatoren er bevist riktig og den eneste gjenstående
+feilkilden er inputet.
+
+### Hvorfor den oppstod
+Direkte av **hvorfor V1A feilet**, og etter at resultatet var sett. Det gjør den
+post-hoc, uansett hvor overbevisende målingen er.
+
+Målt over 108 732 spiller-runder i felles kandidatpool: der modellen sier
+`P(0) = 0,4 %` blanker spilleren i virkeligheten **15,8 %** av gangene. I sjiktet
+`0,50–0,80` er avviket −0,151. Samlet 0,486 predikert mot 0,594 faktisk.
+
+En eksakt evaluator på et slikt input forsterker feilen i stedet for å dempe
+den, fordi den handler på et tall grunnlinjen ignorerer.
+
+### Foreslått utforming
+- Kalibrer `P(0)` direkte mot faktisk blankeandel, walk-forward, med bare
+  framoverrettede splitter.
+- Skill ut den delen av fraværet som var **kjennbar** ved fristen fra den som
+  ikke var det. Arkivet mangler skadestatus per runde, så en øvre grense for
+  hva som er oppnåelig må estimeres først — ellers kalibreres modellen mot støy
+  den umulig kunne sett.
+- Gjenbruk `fplbot/appearance.py` uendret. Den er ikke problemet.
+
+### Krav før produksjonsbruk
+En genuint framtidig sesong, samme regel som H4b. 2022-26 er brukt.
+
+### Preregistrer den parete metrikken som primær
+Sesongtotaler hadde et blokkbootstrap-KI på [−54,5, +50,8] og kunne ikke ha
+skilt +10 fra 0. Den parete oppstillingsmålingen — samme tropp, samme runde, to
+valg — ga et entydig svar på 116 observasjoner. Neste preregistrering skal ha
+den som primærmetrikk, ikke sesongsummen.
+
+---
+
+## Metoderegel som kom ut av V1A
+
+**Presisjon nedstrøms uten kalibrering oppstrøms har negativ verdi.**
+
+En eksakt evaluator flytter beslutningen nærmere inputet og gjør systemet *mer*
+følsomt for feil der, ikke mindre. Grunnlinjen var delvis beskyttet nettopp
+fordi den var grovere og ignorerte `P(0)` helt.
+
+Før noe ledd i kjeden gjøres mer presist, skal inputet det leddet forbruker være
+målt mot fasit over en felles pool.
+
+---
+
 ## Metoderegel som kom ut av H4
 
 **Aldri vurder prognosekvalitet på modellens egen valgte tropp.**
