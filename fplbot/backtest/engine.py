@@ -20,7 +20,7 @@ from ..optimizer import XI_MIN, optimize_squad, pick_lineup
 from ..scoring import GKP, TRANSFER_HIT_COST
 from ..strength import fit_team_strength
 from ..transfers import suggest_transfers
-from . import chips
+from . import chips, v1a
 from .history import Season, prior_profile
 
 MAX_SAVED_TRANSFERS = 5
@@ -180,6 +180,21 @@ def apply_autosubs(
     return final, swaps
 
 
+def _describe_plan(plan) -> str:
+    return ", ".join(
+        f"{out.name}->{into.name}"
+        for out, into in zip(plan.out, plan.incoming, strict=True)
+    )
+
+
+def _describe_lineup(lineup) -> str:
+    return (
+        f"XI[{'/'.join(p.name for p in lineup.starters)}] "
+        f"C={lineup.captain.name} V={lineup.vice.name} "
+        f"B[{'/'.join(p.name for p in lineup.bench)}]"
+    )
+
+
 @dataclass
 class GameweekScore:
     points: int
@@ -205,10 +220,14 @@ def _player_card(player: Player, season: Season, event: int, captain: bool = Fal
 
 
 def score_gameweek(
-    squad: list[Player], season: Season, event: int, chip: str | None = None
+    squad: list[Player], season: Season, event: int, chip: str | None = None, lineup=None
 ) -> GameweekScore:
-    """Setter laget, kjører autobytter og teller poengene som faktisk kom."""
-    lineup = pick_lineup(squad, event)
+    """Setter laget, kjører autobytter og teller poengene som faktisk kom.
+
+    `lineup` lar en annen evaluator bestemme oppstillingen. Står den tom, settes
+    laget som før - grunnlinjens vei gjennom koden er uendret.
+    """
+    lineup = lineup if lineup is not None else pick_lineup(squad, event)
     if chip == chips.BENCH_BOOST:
         # Med Bench Boost teller alle femten, så autobytter er uten betydning.
         final_xi, swaps = list(squad), 0
@@ -266,6 +285,11 @@ def run_backtest(
     # ved simulering av mange kjøringer er det halvparten av arbeidet spart.
     model_cache: dict | None = None,
     on_gameweek=None,
+    # V1A: bytter ut hvordan en tropp evalueres, og ingenting annet. `None` gir
+    # nøyaktig samme kodevei som før, slik at grunnlinjen kan regresjonstestes
+    # bit for bit. Se fplbot/backtest/v1a.py og V1A_PREREG.md.
+    arm: str | None = None,
+    decisions: list | None = None,
 ) -> BacktestResult:
     """Spiller gjennom sesongen med modellen ved rattet."""
     result = BacktestResult(
@@ -320,6 +344,7 @@ def run_backtest(
         if projection_override is not None:
             projection_override(model, event, season)
         events = model.horizon(horizon, start=event)
+        context = v1a.ArmContext.build(model, events, arm) if arm else None
 
         transfers_made = 0
         hits = 0
@@ -377,9 +402,38 @@ def run_backtest(
                 min_availability=0.0,
             )
             unlimited = chip in (chips.WILDCARD, chips.FREE_HIT)
-            worth_it = plan.incoming and (unlimited or plan.net_gain >= min_gain)
-            if worth_it and plan.hits and not allow_hits and not unlimited:
-                worth_it = False
+            baseline_worth_it = plan.incoming and (unlimited or plan.net_gain >= min_gain)
+            if baseline_worth_it and plan.hits and not allow_hits and not unlimited:
+                baseline_worth_it = False
+            worth_it = baseline_worth_it
+
+            if context is not None and plan.incoming:
+                # Samme to kandidater som grunnlinjen vurderer - behold troppen,
+                # eller utfør planen - men priset med den eksakte evaluatoren.
+                after_squad = [p for p in squad if p not in plan.out] + plan.incoming
+                keep_value = context.horizon_value(squad)
+                move_value = context.horizon_value(after_squad)
+                exact_gain = move_value - keep_value - plan.hits * TRANSFER_HIT_COST
+                worth_it = unlimited or exact_gain >= min_gain
+                if worth_it and plan.hits and not allow_hits and not unlimited:
+                    worth_it = False
+                if decisions is not None and worth_it != bool(baseline_worth_it):
+                    decisions.append(
+                        v1a.Decision(
+                            season=season.season,
+                            event=event,
+                            kind="transfer",
+                            baseline_action=(
+                                _describe_plan(plan) if baseline_worth_it else "ingen bytter"
+                            ),
+                            v1a_action=_describe_plan(plan) if worth_it else "ingen bytter",
+                            predicted_baseline_ev=(
+                                move_value if baseline_worth_it else keep_value
+                            ),
+                            predicted_v1a_ev=move_value if worth_it else keep_value,
+                            reason="bytte",
+                        )
+                    )
             if chip and chip_state is not None:
                 chip_state.spend(chip, event)
             if worth_it:
@@ -409,7 +463,33 @@ def run_backtest(
         else:
             free_transfers = max(1, min(MAX_SAVED_TRANSFERS, free_transfers - transfers_made + 1))
 
-        score = score_gameweek(squad, season, event, chip=chip)
+        lineup = None
+        if context is not None:
+            lineup = context.lineup(squad, event)
+            if decisions is not None:
+                baseline_lineup = pick_lineup(squad, event)
+                reason = v1a.lineup_reason(baseline_lineup, lineup)
+                if reason != "ingen forskjell":
+                    baseline_score = score_gameweek(
+                        squad, season, event, chip=chip, lineup=baseline_lineup
+                    )
+                    v1a_score = score_gameweek(squad, season, event, chip=chip, lineup=lineup)
+                    decisions.append(
+                        v1a.Decision(
+                            season=season.season,
+                            event=event,
+                            kind="lineup",
+                            baseline_action=_describe_lineup(baseline_lineup),
+                            v1a_action=_describe_lineup(lineup),
+                            predicted_baseline_ev=context.baseline_lineup_value(squad, event),
+                            predicted_v1a_ev=lineup.value,
+                            realized_baseline_points=baseline_score.points,
+                            realized_v1a_points=v1a_score.points,
+                            reason=reason,
+                        )
+                    )
+
+        score = score_gameweek(squad, season, event, chip=chip, lineup=lineup)
         for player in squad:
             result.projection_pairs.append(
                 (player.xp.get(event, 0.0), season.actual_points(player.id, event))
