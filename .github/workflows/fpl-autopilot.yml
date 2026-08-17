@@ -1,16 +1,34 @@
 name: FPL-autopilot
 
+# Boten skal ikke trenge at du husker å starte den. Den kjører ofte, og avgjør
+# selv om det er noe å gjøre. De aller fleste kjøringene ender med "for tidlig,
+# venter" og koster nesten ingenting.
+#
+# Kadensen er tett nok til at den treffer et vindu på under halvannen time før
+# hver frist, uansett når fristen ligger. GitHub sin cron er best effort og kan
+# bli forsinket noen minutter, så vinduene har god margin.
 on:
-  # Annenhver time. Autopiloten gjør ingenting før den er innenfor vinduet
-  # foran fristen, så de fleste kjøringene er bare et raskt blikk på klokka.
   schedule:
-    - cron: "0 */2 * * *"
+    # Hver time hele døgnet. Kjøringer utenfor vinduet gjør ingenting.
+    - cron: "7 * * * *"
+    # Hvert kvarter i tidsrommet der FPL-frister pleier å ligge (10:00-19:00 UTC
+    # på fredager, lørdager, søndager og de fleste midtukerundene).
+    - cron: "*/15 10-19 * * *"
   workflow_dispatch:
     inputs:
-      confirm:
-        description: "Send inn på ekte (ellers tørrkjøring)"
+      dry_run:
+        description: "Tørrkjøring (ikke skriv til FPL)"
         type: boolean
-        default: false
+        default: true
+
+concurrency:
+  # To kjøringer samtidig kan ikke gi to bytter - handlingsloggen og
+  # tilstandssjekken stopper det - men det er ryddigere å ikke prøve.
+  group: fpl-autopilot
+  cancel-in-progress: false
+
+permissions:
+  contents: write
 
 jobs:
   autopilot:
@@ -26,38 +44,64 @@ jobs:
         run: pip install -e .
 
       - name: Kjør autopilot
+        id: run
         env:
           FPL_ENTRY_ID: ${{ vars.FPL_ENTRY_ID }}
           FPL_COOKIE: ${{ secrets.FPL_COOKIE }}
           FPL_ODDS_API_KEY: ${{ secrets.FPL_ODDS_API_KEY }}
-          # Sikkerhetssperre: uten variabelen FPL_AUTOPILOT satt til "on" er
-          # dette bare en tørrkjøring, uansett hva som skjer ellers.
-          AUTOPILOT: ${{ vars.FPL_AUTOPILOT }}
-          MANUAL_CONFIRM: ${{ inputs.confirm }}
+          # De to bryterne som styrer alt. Begge må stå riktig for at boten
+          # skal få skrive: FPL_AUTONOMY_MODE=true og FPL_DRY_RUN=false.
+          FPL_AUTONOMY_MODE: ${{ vars.FPL_AUTONOMY_MODE }}
+          FPL_DRY_RUN: ${{ inputs.dry_run && 'true' || vars.FPL_DRY_RUN }}
+          FPL_MAX_AUTONOMOUS_HIT: ${{ vars.FPL_MAX_AUTONOMOUS_HIT }}
+          FPL_ALLOW_CHIPS: ${{ vars.FPL_ALLOW_CHIPS }}
+          # Handlingsloggen må overleve at containeren forsvinner, så den
+          # skrives inn i repoet og committes under.
+          FPLBOT_ACTION_LOG: ${{ github.workspace }}/logs/actions.jsonl
         run: |
           if [ -z "$FPL_ENTRY_ID" ]; then
             echo "Sett FPL_ENTRY_ID som repository variable først." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
-
-          FLAGS="--horizon 6 --within-hours 4 --elite 100"
-          if [ "$AUTOPILOT" = "on" ] && [ -n "$FPL_COOKIE" ]; then
-            FLAGS="$FLAGS --confirm"
-          elif [ "$MANUAL_CONFIRM" = "true" ] && [ -n "$FPL_COOKIE" ]; then
-            FLAGS="$FLAGS --confirm"
-          fi
-
-          echo "Kjører: fplbot autopilot $FLAGS"
-          fplbot autopilot $FLAGS > utfall.txt 2>&1 || true
+          mkdir -p logs
+          set +e
+          fplbot run --verbose > utfall.txt 2>&1
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+          set -e
           {
             echo '```'
             cat utfall.txt
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+          cat utfall.txt
+
+      - name: Lagre handlingsloggen
+        if: always()
+        run: |
+          if [ -n "$(git status --porcelain logs/)" ]; then
+            git config user.name "fpl-autopilot"
+            git config user.email "autopilot@users.noreply.github.com"
+            git add logs/
+            git commit -m "Handlingslogg: $(date -u +%Y-%m-%dT%H:%MZ)"
+            # Loggen er en append-only fil, så en samtidig kjøring løses med rebase.
+            for attempt in 1 2 3 4; do
+              git pull --rebase --autostash origin "${GITHUB_REF_NAME}" && \
+                git push origin "HEAD:${GITHUB_REF_NAME}" && break
+              sleep $((attempt * attempt * 2))
+            done
+          fi
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: autopilot-logg
+          name: autopilot-logg-${{ github.run_id }}
           path: utfall.txt
           if-no-files-found: ignore
+
+      - name: Marker kjøringen som mislykket ved ekte feil
+        # Exit-kode 1 er "degradert" og skal ikke lage bråk hver time.
+        # Exit-kode 2 betyr at noe faktisk er galt med kjeden.
+        if: steps.run.outputs.exit_code == '2'
+        run: |
+          echo "Autopiloten rapporterte FAIL. Se utfall.txt." >&2
+          exit 1

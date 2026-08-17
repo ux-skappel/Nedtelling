@@ -394,6 +394,58 @@ def cmd_autopilot(args) -> None:
         print("\nTørrkjøring. Legg til --confirm for å sende inn oppstillingen.")
 
 
+def cmd_run(args) -> None:
+    """Den planlagte kjøringen. Hele kjeden, ende til ende.
+
+    Dette er inngangen planleggeren bruker. Den gjør selv hele jobben: henter
+    ferske data, sjekker helsa, vurderer bytter og chips, setter oppstillingen,
+    validerer, utfører, verifiserer mot FPL og logger. Du skal ikke måtte gjøre
+    noe etter å ha lest utskriften.
+    """
+    from .execution import load_settings, pipeline, status
+
+    settings = load_settings()
+    if args.dry_run:
+        settings.dry_run = True
+    if args.autonomy:
+        settings.autonomy = True
+
+    result = pipeline.run(settings, entry_id=getattr(args, "entry", None) or None)
+    print(status.render(result))
+    if args.verbose:
+        print(status.render_detail(result))
+    raise SystemExit(status.exit_code(result))
+
+
+def cmd_actions(args) -> None:
+    """Viser handlingsloggen: hva boten har gjort, og hvorfor."""
+    from .execution import ActionLog, load_settings
+
+    log = ActionLog(load_settings().action_log)
+    entries = log.tail(args.count)
+    if not entries:
+        print(f"Ingen handlinger logget ennå ({log.path}).")
+        return
+    for entry in entries:
+        print(f"{entry['timestamp']}  {entry['status']:<8}{entry['action_id']}")
+        print(f"    {entry['kind']}  GW{entry['event']}  {entry['summary']}")
+        if entry.get("predicted_gain"):
+            print(f"    predikert {entry['predicted_gain']:+.2f}", end="")
+            if entry.get("hit_cost"):
+                print(f", minuspoeng {entry['hit_cost']}", end="")
+            print()
+        context = entry.get("context") or {}
+        if context:
+            print(f"    doctor {context.get('doctor')}, modus {context.get('mode')}")
+        verification = entry.get("verification")
+        if verification is not None:
+            mark = "PASS" if verification["ok"] else "FAIL"
+            print(f"    verifikasjon {mark}")
+            for problem in verification.get("problems", []):
+                print(f"      - {problem}")
+        print()
+
+
 def cmd_backtest(args) -> None:
     from .backtest.engine import run_backtest
     from .backtest.history import load_season, previous_season
@@ -704,6 +756,20 @@ def build_parser() -> argparse.ArgumentParser:
     submit_transfers.add_argument("--confirm", action="store_true", help="gjennomfør på ekte")
     submit_transfers.add_argument("--allow-hits", action="store_true", help="godta minuspoeng")
     submit_transfers.set_defaults(func=cmd_submit_transfers)
+
+    run_cmd = add_parser("run", "planlagt kjøring: analyser, utfør og verifiser")
+    run_cmd.add_argument(
+        "--dry-run", action="store_true", help="tving tørrkjøring uansett konfigurasjon"
+    )
+    run_cmd.add_argument(
+        "--autonomy", action="store_true", help="slå på autonomi for denne kjøringen"
+    )
+    run_cmd.add_argument("--verbose", action="store_true", help="vis validering og verifikasjon")
+    run_cmd.set_defaults(func=cmd_run)
+
+    actions = add_parser("actions", "vis handlingsloggen")
+    actions.add_argument("--count", type=int, default=10, help="antall linjer (10)")
+    actions.set_defaults(func=cmd_actions)
 
     return parser
 
