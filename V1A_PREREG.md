@@ -20,10 +20,17 @@ Det gir følgende:
 | `CONFIRMATORY` | Krever en sesong som ikke er sett. 2026/27 kan tjene som det |
 | `EXPLORATORY` | Alt som endres etter at resultatet er lest |
 
-Et **negativt** resultat er sterkt selv retrospektivt: hadde jeg ubevisst
-tilpasset designet til disse sesongene, ville skjevheten pekt mot et positivt
-funn. Et **positivt** resultat er svakere, og skal beskrives som «bestått
-forhåndsregistrert retrospektiv test», ikke som bekreftet.
+**Både positive og negative resultater er bevis fra en forhåndsregistrert
+retrospektiv test. Ingen av dem er prospektiv bekreftelse.**
+
+Symmetrien er viktig. Et negativt resultat betyr ikke nødvendigvis at
+mekanismen ikke finnes — det kan like gjerne skyldes for lav statistisk styrke
+med fire sesonger, en dårlig implementasjon av en riktig idé, at
+prognosemodellen under er for svak til at bedre troppsevaluering får noe å jobbe
+med, eller regimeforskjeller mellom sesongene. Et positivt resultat betyr ikke
+at mekanismen er bekreftet, fordi dataene ikke er ferske.
+
+Begge utfall rapporteres med samme grundighet og samme forbehold.
 
 Blir V1A skrudd på, registreres samme kriterier for 2026/27 som genuint
 prospektiv validering.
@@ -504,6 +511,61 @@ videre.
 
 ---
 
+## 11A. Rapportstruktur — fryst
+
+`docs/V1A_RESULT.md` skal åpne med de mekaniske utfallene, ikke med en
+fortelling. Rekkefølgen er bindende:
+
+**1. Utfall først.** Tre linjer, før all forklaring:
+
+```
+V1A-0 vs baseline:      PASS / INCONCLUSIVE / FAIL
+V1A-1 inkrementelt:     PASS / INCONCLUSIVE / FAIL
+V1A-1 vs baseline:      PASS / INCONCLUSIVE / FAIL
+```
+
+Kriteriene i seksjon 8 anvendes mekanisk. −20 er FAIL. +7 er INCONCLUSIVE. +13
+med brutt konsistenskrav er INCONCLUSIVE. Ingen skjønnsmessig oppgradering, og
+ingen narrativ som avgjør konklusjonen i etterkant.
+
+**2. Policyresultat.** Per sesong: baseline, V1A-0, V1A-1 og deltaene.
+
+**3. Beslutningsdivergens.** Per arm, målt mot grunnlinjen:
+
+| Mål | |
+| --- | --- |
+| Runder med minst én endret beslutning | av 152 |
+| Bytter endret | |
+| Kaptein endret | |
+| Visekaptein endret | |
+| Startellever endret | |
+| Benkerekkefølge endret | |
+
+**4. Realisert verdi av endrede beslutninger.** For hver arm: av de rundene
+der en beslutning ble endret, hvor mange ga positiv, negativ og null realisert
+delta, og hva summen ble. Deretter fordelt på årsakskategori.
+
+Dette er viktigere enn beskrivelser av enkeltspillere. Et resultat på +12 fordelt
+på 5 endrede runder betyr noe helt annet enn +12 fordelt på 100.
+
+**5. Predikert mot realisert beslutningsfordel.** For hver divergerende
+beslutning har vi `predicted_delta` og `realized_delta`. Grupper etter predikert
+fordel og vis realisert:
+
+```
+0,00-0,10   0,10-0,25   0,25-0,50   0,50-1,00   >1,00
+```
+
+Buckets slås sammen der utvalget er for lite til å vise noe. Sier modellen
+`+0,30` på 40 beslutninger som i snitt gir `−0,10`, er det en egen form for
+optimizer's curse — på beslutningsnivå i stedet for på spillernivå.
+
+**Dette er diagnostikk. Det skal ikke tunes på nå.** Å bruke denne tabellen til
+å justere V1A og kjøre om igjen faller inn under seksjon 14A som designsvikt,
+ikke som bug.
+
+---
+
 ## 12. Fasittester før historisk backtest
 
 Deterministiske, håndregnede. Disse er viktigere enn backtesten.
@@ -643,6 +705,97 @@ spiller logges der som en diagnostisk størrelse: det er ekstra
 | Skjult tuning | Kriterier «justeres» etterpå | Dette dokumentet, tre definerte utfall |
 | Redning av et uavklart resultat | Redesign kjøres på samme fire sesonger | `INCONCLUSIVE` skrur ikke på og utløser ikke ny kjøring |
 | Baseline endret | Referansetallene flytter seg | Referansetallene står i seksjon 3 |
+
+---
+
+## 14A. Bug- og rerun-policy — fryst før resultatene
+
+Uten denne regelen kan enhver mislykket test reddes ved å kalle den en bug.
+Skillet defineres her, før noe resultat foreligger.
+
+### Implementasjonsfeil — kan rettes, testen kan kjøres på nytt
+
+En **objektivt demonstrerbar** avvik mellom spesifikasjonen i dette dokumentet
+og koden. Ikke-uttømmende liste:
+
+- autobyttereglene er kodet feil målt mot seksjon 6
+- `Σ P(tilstand) ≠ 1`
+- kaptein får multiplikator i et tilfelle seksjon 7 sier han ikke skal
+- formasjonsbegrensning håndhevet feil
+- V1A-0 bryter middelbevaring (test D)
+- feil datafil lastet, feil sesong, feil runde
+- aritmetikk-, indekserings- eller fortegnsfeil
+- grunnlinjen er utilsiktet endret
+
+Kjennetegnet er at feilen kan påvises **uten å vite hva resultatet ble**: en
+fasittest, en invariant eller en spesifikasjonslinje er brutt.
+
+Prosedyren ved retting:
+
+1. Bugen dokumenteres i `docs/V1A_RESULT.md` — hva som var galt, hvordan den ble
+   oppdaget, og hvilken invariant som fanget den.
+2. **Det opprinnelige resultatet beholdes** i dokumentet. Det slettes ikke.
+3. Rettelsen beskrives, med henvisning til linjen i denne preregistreringen som
+   koden nå følger.
+4. Nytt commit, ny hash logget i resultatdokumentet.
+5. Det skal kunne vises at rettelsen bringer koden nærmere **spesifikasjonen**,
+   ikke nærmere et ønsket resultat. En rettelse som ikke kan begrunnes med en
+   linje i dette dokumentet er ikke en rettelse.
+
+### Modell- eller designsvikt — ingen rerun
+
+Ikke-uttømmende liste:
+
+- `P(0)`-avbildningen fungerer dårlig
+- +10-kriteriet nås ikke
+- V1A gjør dårlige bytter
+- resultatet er negativt
+- «en annen fordeling ville nok vært bedre»
+- vi liker ikke hvilke spillere modellen favoriserer
+- effekten finnes, men bare i to av fire sesonger
+
+Dette er **ikke** bugs. Det er utfall.
+
+Her skal modellen ikke justeres og kjøres på nytt mot de samme dataene. Enhver
+redesign blir en **ny eksplorativ hypotese** — `V1A-2`, registrert i
+`RESEARCH_BACKLOG.md` med status `EXPLORATORY`, og den kan ikke bekrefte seg
+selv på sesonger som allerede er brukt. Nøyaktig samme regel som H4 fikk.
+
+### Gråsonen
+
+Er det uklart hvilken kategori noe faller i, gjelder den strengeste: ingen
+rerun. Tvilen skal ikke komme hypotesen til gode.
+
+Etter at den historiske kjøringen er gjennomført er datasettet **brukt opp** for
+V1A. Det gjelder også hvis vi senere får en god idé om hvorfor det gikk galt.
+
+---
+
+## 14B. Utførelsesregler
+
+1. **Begge armer implementeres og fryses før noe historisk resultat leses.**
+   Ikke: implementer V1A-0 → kjør → se resultat → implementer V1A-1. Syntetiske
+   tester, deterministiske fikstur, brute force, MC-kryssjekk og invarianter kan
+   brukes fritt under utvikling; ende-til-ende historiske V1A-tall kan ikke.
+
+2. **Pre-results commit.** Når begge armer er implementert, alle
+   evaluatortester består, middelbevaring består og grunnlinjeregresjonen
+   består, opprettes et commit før den historiske kjøringen. Resultatdokumentet
+   logger: prereg-hash, implementasjons-hash, antall tester, og den eksakte
+   kommandoen som produserte tallene.
+
+3. **Grunnlinjen regresjonstestes bit for bit** før V1A kjøres:
+   sesongtotaler, bytter, kapteiner, benk og troppsutvikling skal være
+   identiske med de frosne tallene. Flytter grunnlinjen seg, stopper testen —
+   da er mer enn én variabel endret.
+
+4. **Armene er ikke sekvensavhengige.** V1A-1 kjøres som forhåndsregistrert
+   uansett om V1A-0 består eller feiler. Resultatet av én arm avgjør ikke om
+   den andre får bli testet.
+
+5. **Rekkefølgen er bindende:** 12A (A, C, D som harde porter, B som
+   uavhengig sanity check) → grunnlinjeregresjon → pre-results commit →
+   historisk kjøring. Feiler A, C eller D, kjøres ingen historisk policytest.
 
 ---
 
