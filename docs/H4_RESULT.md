@@ -58,8 +58,23 @@ råverdien.
 ## Konsekvenser
 
 **1. Holdout er brukt opp.** Enhver redesign må forhåndsregistreres på nytt og
-testes på en sesong som ikke er sett. 2022-23 kan tjene som fersk holdout hvis
-korreksjonen refittes på 2023-26.
+testes på en sesong som ikke er sett.
+
+*Rettelse.* Jeg skrev opprinnelig at 2022-23 kunne tjene som fersk holdout hvis
+korreksjonen ble refittet på 2023-26. **Det er feil.** Å trene på 2023-26 og
+teste på 2022-23 bruker framtidig informasjon til å predikere fortiden. Det er
+temporal lekkasje selv om observasjonene fra 2022-23 aldri har vært brukt før.
+
+Enhver prediksjon på tidspunkt `t` skal bare kunne bruke informasjon fra før `t`.
+Gyldige oppsett er derfor bare framoverrettede:
+
+    tren 2022-23        → test 2023-24
+    tren 2022-24        → test 2024-25
+    tren 2022-25        → test 2025-26
+
+Og siden 2025-26 nå er brukt til å teste H4, finnes det ingen ubrukt
+framtidig sesong igjen. En redesign kan kjøres som **eksplorativ**
+walk-forward-forskning, men ikke som ny bekreftelse.
 
 **2. Hypotesen er ikke død, men denne implementasjonen er det.** En redesign bør
 betinge på persentil innenfor runden, eller normalisere anslaget mot rundens
