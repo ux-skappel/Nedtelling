@@ -63,24 +63,64 @@ function parseArgs(argv: string[]): Options {
   return options;
 }
 
-async function prompt(question: string, hidden = false): Promise<string> {
+async function prompt(question: string): Promise<string> {
   const rl = createInterface({ input: stdin, output: stdout, terminal: true });
-  if (!hidden) {
-    const answer = await rl.question(question);
-    rl.close();
-    return answer.trim();
-  }
-
-  // readline echoes by default; swallow the echo so the password stays off-screen.
-  const output = rl as unknown as { output: NodeJS.WriteStream; _writeToOutput: (text: string) => void };
-  const original = output._writeToOutput.bind(output);
-  output._writeToOutput = (text: string) => {
-    original(text.includes(question) ? question : "");
-  };
   const answer = await rl.question(question);
   rl.close();
-  stdout.write("\n");
   return answer.trim();
+}
+
+/**
+ * Reads a line from the terminal without echoing it.
+ *
+ * Avoids readline's own masking hooks — they reach into private fields whose
+ * shape varies across Node versions and environments (they don't exist at all
+ * on some hosted terminals), so this reads raw keystrokes instead.
+ */
+async function promptHidden(question: string): Promise<string> {
+  stdout.write(question);
+  if (!stdin.isTTY) {
+    // No real terminal to put in raw mode (e.g. input piped in) — fall back
+    // to a plain, visible read rather than failing outright.
+    return prompt("");
+  }
+
+  return new Promise((resolve) => {
+    let input = "";
+    stdin.setRawMode(true);
+    stdin.resume();
+    stdin.setEncoding("utf8");
+
+    const onData = (char: string) => {
+      switch (char) {
+        case "\n":
+        case "\r":
+        case "\u0004": // Ctrl-D
+          cleanup();
+          stdout.write("\n");
+          resolve(input);
+          break;
+        case "\u0003": // Ctrl-C
+          cleanup();
+          stdout.write("\n");
+          process.exit(130);
+          break;
+        case "\u007f": // Backspace
+        case "\b":
+          input = input.slice(0, -1);
+          break;
+        default:
+          input += char;
+          break;
+      }
+    };
+    const cleanup = () => {
+      stdin.setRawMode(false);
+      stdin.pause();
+      stdin.removeListener("data", onData);
+    };
+    stdin.on("data", onData);
+  });
 }
 
 interface SsoResponse {
@@ -113,7 +153,7 @@ async function signIn(options: Options): Promise<{ ticket: string; jar: CookieJa
   jar.absorb(page);
 
   const email = process.env["GARMIN_EMAIL"] || (await prompt("Garmin email: "));
-  const password = process.env["GARMIN_PASSWORD"] || (await prompt("Garmin password: ", true));
+  const password = process.env["GARMIN_PASSWORD"] || (await promptHidden("Garmin password: "));
   if (!email || !password) throw new Error("Email and password are both required.");
 
   // 2. Submit credentials.
