@@ -8,6 +8,10 @@ dist/
 .venv/
 venv/
 
+# Bygget nettsted og lokal Vercel-kobling
+public/
+.vercel/
+
 # Aldri sjekk inn sesjonscookien eller mellomlagrede API-svar
 cookie.txt
 config.json

@@ -1,0 +1,7 @@
+# Byggingen trenger bare dashboard/, data/ og scripts/. Resten er boten selv,
+# og den har ingenting på et statisk nettsted å gjøre.
+fplbot/
+tests/
+.github/
+pyproject.toml
+requirements.txt
