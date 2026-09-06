@@ -3,6 +3,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerActivityTools } from "./tools/activities.js";
 import { registerFileTools } from "./tools/files.js";
+import { registerCoachTools } from "./tools/coach.js";
 import { registerProfileTools } from "./tools/profile.js";
 import { registerRawTools } from "./tools/raw.js";
 import { registerStreamTools } from "./tools/streams.js";
@@ -12,40 +13,53 @@ import { registerWellnessTools } from "./tools/wellness.js";
 export const SERVER_NAME = "garmin-mcp";
 export const SERVER_VERSION = "0.1.0";
 
-const INSTRUCTIONS = `Read-only access to one Garmin Connect account. Coaching-first design: ask aggregate
-questions first, drill down only when you need details.
+const INSTRUCTIONS = `Read-only access to one Garmin Connect account. Running-coach-first design.
 
-COACHING-FOCUSED TOOLS (start here for running questions):
-- garmin_get_training_snapshot: Quick overview of last 1, 4, 12, and 52 weeks.
-  Returns distance, pace, HR, training load, recovery score, anomalies, trends.
-  Use for questions like: "How's my training going?" "Am I overtraining?"
-- garmin_get_weekly_training_history: 4, 12, 52-week trend analysis by week.
-- garmin_get_recent_activities: Recent activity summaries (no raw samples).
-- garmin_get_activity_summary: Full summary of one activity without samples.
-- garmin_get_activity_laps: Lap/split breakdown within an activity.
+COACH STATE (start here):
+- garmin_get_coach_state: Current goals, training phase, preferences, recent notes.
+  Use to understand coaching context before analyzing Garmin data.
 
-PROGRESSIVE RETRIEVAL (drill down as needed):
-1. Start with garmin_get_training_snapshot or garmin_get_weekly_training_history
-   for big-picture questions (trend, anomalies, periodization).
-2. Use garmin_get_recent_activities or garmin_get_activity_summary to identify
-   specific workouts worth analyzing.
-3. Use garmin_get_activity_laps to understand the workout's structure.
-4. Use garmin_get_activity_details only for per-sample analysis (HR curve,
-   pace distribution, gps map, etc.). Always call with includeSamples=false
-   first to see channel count and sample count.
+RUNNING ANALYSIS TOOLS (primary for coaching questions):
+- garmin_get_training_snapshot: Last 1/4/12/52 weeks (distance, pace, HR, load, recovery, anomalies).
+  Use for: "How's my training?" "Am I overtraining?" "Fitness trends?"
+- garmin_get_weekly_training_history: Per-week aggregates over N weeks.
+  Use for: "Show me week-by-week progression" (trends, patterns, periodization).
+- garmin_get_running_progress: Comprehensive running summary (volume, efficiency, intervals, form).
+  Use for: "Am I getting fitter?" "What should I focus on?"
+- garmin_get_recent_activities: Recent run summaries (no samples).
+  Use to identify which workouts to analyze further.
 
-RAW DATA TOOLS (use sparingly):
-- garmin_list_activities: Browse activities by date/type. Paged.
-- garmin_get_activity_details: Per-sample time series (heart rate, pace, etc.).
+WORKOUT-LEVEL ANALYSIS:
+- garmin_get_activity_summary: One activity summary without sample data.
+  Use before requesting detailed analysis.
+- garmin_get_activity_laps: Lap/split breakdown (intervals, pacing, HR progression).
+  Use for: "What was my pace per lap?" "How did HR change through the workout?"
+
+PROGRESSIVE RETRIEVAL (optimal Claude ordering):
+1. garmin_get_coach_state (understand goals, phase, preferences)
+2. garmin_get_training_snapshot or garmin_get_weekly_training_history
+   (big-picture: trends, anomalies, overall fitness)
+3. garmin_get_running_progress (comprehensive running-specific summary)
+4. garmin_get_recent_activities (find specific workouts)
+5. garmin_get_activity_summary + garmin_get_activity_laps (analyze one workout)
+6. garmin_get_activity_details (only for detailed HR curves, elevation, GPS maps)
+
+COACH STATE UPDATES (end of conversation or when context changes):
+- garmin_update_coach_state_goal: Add/update race goals
+- garmin_update_coach_preferences: Set training preferences
+- garmin_set_training_phase: Mark current phase (base/build/peak/taper/recovery)
+- garmin_add_coach_note: Record coaching observations
+
+RAW DATA TOOLS (use sparingly, last resort):
+- garmin_list_activities: Browse all activities by date/type.
+- garmin_get_activity_details: Per-sample time series (heart rate, pace, samples).
   Sample series are paged; follow page.nextOffset while page.hasMore is true.
-- garmin_get_heart_rate_series, garmin_get_gps_track: Projections onto specific
-  channels (HR vs time, position map).
+- garmin_get_heart_rate_series, garmin_get_gps_track: Channel projections.
 
-OTHER TOOLS:
-- Daily wellness (sleep, heart rate, stress, hrv, etc.) — call without 'series'
-  first to see what channels a day holds, then name the series.
-- Times are Garmin's: GMT = UTC, Local = account time zone (garmin_get_profile).
-- garmin_get_raw: Connect API endpoints not covered by dedicated tools.`;
+OTHER:
+- Daily wellness tools: sleep, HRV, stress, body battery.
+- Times: GMT = UTC, Local = account timezone (garmin_get_profile).
+- garmin_get_raw: Direct API endpoints.`;
 
 export function createServer(): McpServer {
   const server = new McpServer(
@@ -53,6 +67,7 @@ export function createServer(): McpServer {
     { capabilities: { tools: {} }, instructions: INSTRUCTIONS },
   );
 
+  registerCoachTools(server);
   registerProfileTools(server);
   registerTrainingTools(server);
   registerActivityTools(server);

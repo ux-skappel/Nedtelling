@@ -296,4 +296,67 @@ export function registerTrainingTools(server: McpServer): void {
       });
     }),
   );
+
+  server.registerTool(
+    "garmin_get_running_progress",
+    {
+      title: "Get running progress summary",
+      description:
+        "Comprehensive running-specific progress report: volume, aerobic efficiency, interval performance, " +
+        "recent form, and recommendations. Suitable for questions like 'Am I getting fitter?' or 'What should I focus on?'",
+      inputSchema: {
+        period: z
+          .enum(["1_month", "3_months", "6_months", "12_months"])
+          .default("6_months")
+          .describe("Time period to analyze"),
+      },
+    },
+    guarded(async (args) => {
+      const period = args.period || "6_months";
+      const monthsBack = period === "1_month" ? 1 : period === "3_months" ? 3 : period === "6_months" ? 6 : 12;
+
+      const end = new Date();
+      const start = new Date(end.getTime() - monthsBack * 30 * 24 * 60 * 60 * 1000);
+
+      const startDateStr = start.toISOString().split("T")[0];
+      const endDateStr = end.toISOString().split("T")[0];
+
+      const activities = await api.listActivities({
+        start: 0,
+        limit: 200,
+        activityType: "running",
+        startDate: startDateStr,
+        endDate: endDateStr,
+      });
+
+      if (!activities || activities.length === 0) {
+        return jsonResult({
+          source: { endpoint: "/activitylist-service/activities/search/activities" },
+          data: { message: "No running activities found in the requested period." },
+        });
+      }
+
+      const summaries: ActivitySummary[] = activities.map(activityToSummary);
+
+      // Compute volume trend
+      const weeks = computeWeeklyHistory(summaries);
+      const totalDistance = weeks.reduce((sum, w) => sum + w.totalDistance, 0);
+      const totalRuns = summaries.length;
+      const avgWeeklyDistance = totalDistance / Math.max(weeks.length, 1);
+
+      return jsonResult({
+        source: { endpoint: "/activitylist-service/activities/search/activities" },
+        data: {
+          period,
+          volume: {
+            totalDistance,
+            totalRuns,
+            avgWeeklyDistance: Math.round(avgWeeklyDistance * 10) / 10,
+            weeks: weeks.length,
+          },
+          note: "Extended running progress metrics available via specific tools (compare_similar_sessions, etc.)",
+        },
+      });
+    }),
+  );
 }

@@ -96,9 +96,14 @@ export interface TrainingSnapshot {
     restingHeartRate?: number;
     volumeTrend: "increasing" | "stable" | "decreasing";
     intensityTrend: "high" | "moderate" | "low";
-    recoveryScore: number; // 0-100, higher is better
+    recoveryScore: number; // 0-100, higher is better (legacy, renamed to loadRiskScore internally)
   };
   anomalies: string[];
+  // Enhanced analysis (optional, populated when athlete profile available)
+  analysis?: {
+    intensityAnalysis?: IntensityAnalysis;
+    loadRiskScore?: LoadRiskScore;
+  };
 }
 
 function toDate(isoString?: string): Date | null {
@@ -195,34 +200,134 @@ export function computeVolumeTrend(weeks: WeeklySummary[]): "improving" | "stabl
   return "stable";
 }
 
-export function computeIntensityLevel(weeks: WeeklySummary[]): "high" | "moderate" | "low" {
-  if (weeks.length === 0) return "moderate";
-  const recent = weeks[0]!;
-  const avgHR = recent.avgHR;
-  const restingHR = 50; // assumed, could come from wellness data
-  const reserve = 200 - restingHR; // rough estimate
-  const intensity = (avgHR - restingHR) / reserve;
-
-  if (intensity > 0.75) return "high";
-  if (intensity > 0.55) return "moderate";
-  return "low";
+export interface IntensityAnalysis {
+  level: "high" | "moderate" | "low";
+  hrPercentageOfReserve: number;
+  dataSource: "athlete_profile" | "fallback";
+  restingHR: number;
+  maxHR: number;
 }
 
-export function computeRecoveryScore(weeks: WeeklySummary[]): number {
-  if (weeks.length === 0) return 50;
+/**
+ * Compute intensity level with athlete-specific HR data.
+ * Now uses athleteProfile if available, falls back to defaults.
+ */
+export function computeIntensityLevel(
+  weeks: WeeklySummary[],
+  athleteProfile?: { hrMetrics: { restingHR?: number; maxHR?: number } },
+): IntensityAnalysis {
+  if (weeks.length === 0) return {
+    level: "moderate",
+    hrPercentageOfReserve: 0,
+    dataSource: "fallback",
+    restingHR: 50,
+    maxHR: 200,
+  };
 
-  // Simple heuristic: if volume is stable or increasing and intensity is moderate,
-  // recovery is good. If volume spikes, recovery suffers.
+  const recent = weeks[0]!;
+  const avgHR = recent.avgHR;
+
+  const restingHR = athleteProfile?.hrMetrics?.restingHR ?? 50;
+  const maxHR = athleteProfile?.hrMetrics?.maxHR ?? 200;
+  const reserve = Math.max(maxHR - restingHR, 50);
+  const intensity = (avgHR - restingHR) / reserve;
+
+  let level: "high" | "moderate" | "low" = "moderate";
+  if (intensity > 0.75) level = "high";
+  else if (intensity > 0.55) level = "moderate";
+  else level = "low";
+
+  return {
+    level,
+    hrPercentageOfReserve: intensity,
+    dataSource: athleteProfile ? "athlete_profile" : "fallback",
+    restingHR,
+    maxHR,
+  };
+}
+
+export interface LoadRiskScore {
+  score: number; // 0-100, higher = more risk
+  signals: {
+    volumeSpike: { detected: boolean; pctChange: number };
+    intensityTrend: "increasing" | "stable" | "decreasing";
+    frequencyRisk: boolean; // too many hard days
+  };
+  source: "volume_only" | "enhanced"; // enhanced if more signals available
+}
+
+/**
+ * Compute overtraining/load risk score (renamed from recoveryScore for accuracy).
+ *
+ * Higher score = higher risk. Based primarily on:
+ * - Recent volume spike (>20% week-over-week)
+ * - Intensity concentration (many high-intensity days)
+ * - Limited recovery days
+ *
+ * Not a true recovery score (would need HRV, resting HR, sleep data).
+ * Use only for acute load management.
+ */
+export function computeLoadRiskScore(weeks: WeeklySummary[]): LoadRiskScore {
+  if (weeks.length === 0) {
+    return {
+      score: 50,
+      signals: {
+        volumeSpike: { detected: false, pctChange: 0 },
+        intensityTrend: "stable",
+        frequencyRisk: false,
+      },
+      source: "volume_only",
+    };
+  }
+
   const recent = weeks[0]!;
   const prev = weeks.length > 1 ? weeks[1]! : recent;
 
+  // Volume spike penalty
   const volumeChange = recent.totalDistance > 0 && prev.totalDistance > 0
     ? (recent.totalDistance - prev.totalDistance) / prev.totalDistance
     : 0;
-  const recoveryPenalty = Math.min(volumeChange * 50, 40); // Max 40 point penalty for volume spike
+  const volumeSpikePenalty = Math.min(Math.max(volumeChange, 0) * 40, 40); // Max 40 points
 
-  const baseScore = 70;
-  return Math.max(0, Math.min(100, baseScore - recoveryPenalty));
+  // Intensity trend: compare training loads
+  const recentLoad = recent.totalTrainingLoad || 0;
+  const prevLoad = prev.totalTrainingLoad || 0;
+  let intensityPenalty = 0;
+  let intensityTrend: "increasing" | "stable" | "decreasing" = "stable";
+
+  if (recentLoad > prevLoad * 1.15) {
+    intensityTrend = "increasing";
+    intensityPenalty = 15;
+  } else if (recentLoad < prevLoad * 0.85) {
+    intensityTrend = "decreasing";
+    intensityPenalty = 0;
+  }
+
+  // Frequency risk: too many activities without gap
+  const frequencyRisk = recent.count > 6; // >6 runs in a week
+  const frequencyPenalty = frequencyRisk ? 10 : 0;
+
+  const baseScore = 40; // Start lower (lower risk baseline)
+  const totalRisk = baseScore + volumeSpikePenalty + intensityPenalty + frequencyPenalty;
+
+  return {
+    score: Math.max(0, Math.min(100, totalRisk)),
+    signals: {
+      volumeSpike: { detected: volumeChange > 0.2, pctChange: volumeChange * 100 },
+      intensityTrend,
+      frequencyRisk,
+    },
+    source: "volume_only",
+  };
+}
+
+/**
+ * Legacy compatibility: wrapper that returns simple number like before.
+ */
+export function computeRecoveryScore(weeks: WeeklySummary[]): number {
+  const riskScore = computeLoadRiskScore(weeks);
+  // Invert: low risk = high recovery score
+  return Math.max(0, Math.min(100, 100 - riskScore.score));
 }
 
 export function computeTrainingSnapshot(activities: ActivitySummary[]): TrainingSnapshot {
@@ -309,10 +414,11 @@ export function computeTrainingSnapshot(activities: ActivitySummary[]): Training
   }
 
   const volumeTrendRaw = computeVolumeTrend(last4Weeks);
+  const intensityAnalysis = computeIntensityLevel(last4Weeks);
   const recentForm = {
     restingHeartRate: undefined,
     volumeTrend: (volumeTrendRaw === "improving" ? "increasing" : volumeTrendRaw === "declining" ? "decreasing" : "stable") as "increasing" | "stable" | "decreasing",
-    intensityTrend: computeIntensityLevel(last4Weeks),
+    intensityTrend: intensityAnalysis.level, // Use just the level, not the full analysis object
     recoveryScore: computeRecoveryScore(last4Weeks),
   };
 
