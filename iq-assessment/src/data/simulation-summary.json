@@ -1,0 +1,1398 @@
+{
+  "generated": "2026-10-08",
+  "note": "Simulation under assumed models — not validation evidence.",
+  "results": [
+    {
+      "mode": "quick",
+      "domain": "Gf",
+      "condition": "provisional",
+      "marginalReliability": 0.772,
+      "trueScoreR2": 0.779,
+      "meanItems": 21,
+      "meanSE": 0.476,
+      "grid": [
+        {
+          "theta": -3.5,
+          "bias": 1.063,
+          "rmse": 1.126,
+          "meanSE": 0.5,
+          "coverage95": 0.425
+        },
+        {
+          "theta": -3,
+          "bias": 0.85,
+          "rmse": 0.937,
+          "meanSE": 0.491,
+          "coverage95": 0.63
+        },
+        {
+          "theta": -2.5,
+          "bias": 0.611,
+          "rmse": 0.73,
+          "meanSE": 0.48,
+          "coverage95": 0.81
+        },
+        {
+          "theta": -2,
+          "bias": 0.367,
+          "rmse": 0.557,
+          "meanSE": 0.471,
+          "coverage95": 0.915
+        },
+        {
+          "theta": -1.5,
+          "bias": 0.312,
+          "rmse": 0.512,
+          "meanSE": 0.461,
+          "coverage95": 0.925
+        },
+        {
+          "theta": -1,
+          "bias": 0.233,
+          "rmse": 0.538,
+          "meanSE": 0.462,
+          "coverage95": 0.89
+        },
+        {
+          "theta": -0.5,
+          "bias": 0.084,
+          "rmse": 0.397,
+          "meanSE": 0.462,
+          "coverage95": 0.985
+        },
+        {
+          "theta": 0,
+          "bias": 0.039,
+          "rmse": 0.426,
+          "meanSE": 0.471,
+          "coverage95": 0.98
+        },
+        {
+          "theta": 0.5,
+          "bias": -0.093,
+          "rmse": 0.465,
+          "meanSE": 0.481,
+          "coverage95": 0.95
+        },
+        {
+          "theta": 1,
+          "bias": -0.243,
+          "rmse": 0.47,
+          "meanSE": 0.492,
+          "coverage95": 0.935
+        },
+        {
+          "theta": 1.5,
+          "bias": -0.342,
+          "rmse": 0.562,
+          "meanSE": 0.504,
+          "coverage95": 0.915
+        },
+        {
+          "theta": 2,
+          "bias": -0.527,
+          "rmse": 0.691,
+          "meanSE": 0.518,
+          "coverage95": 0.82
+        },
+        {
+          "theta": 2.5,
+          "bias": -0.692,
+          "rmse": 0.78,
+          "meanSE": 0.533,
+          "coverage95": 0.795
+        },
+        {
+          "theta": 3,
+          "bias": -0.949,
+          "rmse": 1.024,
+          "meanSE": 0.548,
+          "coverage95": 0.64
+        },
+        {
+          "theta": 3.5,
+          "bias": -1.196,
+          "rmse": 1.242,
+          "meanSE": 0.562,
+          "coverage95": 0.365
+        }
+      ]
+    },
+    {
+      "mode": "quick",
+      "domain": "Gf",
+      "condition": "misspecified",
+      "marginalReliability": 0.791,
+      "trueScoreR2": 0.759,
+      "meanItems": 20.9,
+      "meanSE": 0.48,
+      "grid": [
+        {
+          "theta": -3.5,
+          "bias": 0.974,
+          "rmse": 1.026,
+          "meanSE": 0.507,
+          "coverage95": 0.55
+        },
+        {
+          "theta": -3,
+          "bias": 0.694,
+          "rmse": 0.782,
+          "meanSE": 0.498,
+          "coverage95": 0.79
+        },
+        {
+          "theta": -2.5,
+          "bias": 0.475,
+          "rmse": 0.632,
+          "meanSE": 0.487,
+          "coverage95": 0.86
+        },
+        {
+          "theta": -2,
+          "bias": 0.346,
+          "rmse": 0.598,
+          "meanSE": 0.478,
+          "coverage95": 0.9
+        },
+        {
+          "theta": -1.5,
+          "bias": 0.216,
+          "rmse": 0.554,
+          "meanSE": 0.466,
+          "coverage95": 0.91
+        },
+        {
+          "theta": -1,
+          "bias": 0.238,
+          "rmse": 0.522,
+          "meanSE": 0.463,
+          "coverage95": 0.925
+        },
+        {
+          "theta": -0.5,
+          "bias": 0.157,
+          "rmse": 0.502,
+          "meanSE": 0.465,
+          "coverage95": 0.95
+        },
+        {
+          "theta": 0,
+          "bias": -0.01,
+          "rmse": 0.44,
+          "meanSE": 0.472,
+          "coverage95": 0.975
+        },
+        {
+          "theta": 0.5,
+          "bias": -0.037,
+          "rmse": 0.444,
+          "meanSE": 0.482,
+          "coverage95": 0.96
+        },
+        {
+          "theta": 1,
+          "bias": -0.144,
+          "rmse": 0.456,
+          "meanSE": 0.494,
+          "coverage95": 0.96
+        },
+        {
+          "theta": 1.5,
+          "bias": -0.291,
+          "rmse": 0.525,
+          "meanSE": 0.506,
+          "coverage95": 0.935
+        },
+        {
+          "theta": 2,
+          "bias": -0.49,
+          "rmse": 0.627,
+          "meanSE": 0.517,
+          "coverage95": 0.875
+        },
+        {
+          "theta": 2.5,
+          "bias": -0.71,
+          "rmse": 0.81,
+          "meanSE": 0.532,
+          "coverage95": 0.755
+        },
+        {
+          "theta": 3,
+          "bias": -1.006,
+          "rmse": 1.071,
+          "meanSE": 0.542,
+          "coverage95": 0.565
+        },
+        {
+          "theta": 3.5,
+          "bias": -1.269,
+          "rmse": 1.33,
+          "meanSE": 0.56,
+          "coverage95": 0.41
+        }
+      ]
+    },
+    {
+      "mode": "full",
+      "domain": "Gf",
+      "condition": "provisional",
+      "marginalReliability": 0.678,
+      "trueScoreR2": 0.682,
+      "meanItems": 13,
+      "meanSE": 0.57,
+      "grid": [
+        {
+          "theta": -3.5,
+          "bias": 1.364,
+          "rmse": 1.426,
+          "meanSE": 0.573,
+          "coverage95": 0.353
+        },
+        {
+          "theta": -3,
+          "bias": 1.174,
+          "rmse": 1.267,
+          "meanSE": 0.569,
+          "coverage95": 0.453
+        },
+        {
+          "theta": -2.5,
+          "bias": 0.835,
+          "rmse": 0.968,
+          "meanSE": 0.568,
+          "coverage95": 0.713
+        },
+        {
+          "theta": -2,
+          "bias": 0.611,
+          "rmse": 0.776,
+          "meanSE": 0.561,
+          "coverage95": 0.833
+        },
+        {
+          "theta": -1.5,
+          "bias": 0.385,
+          "rmse": 0.593,
+          "meanSE": 0.562,
+          "coverage95": 0.927
+        },
+        {
+          "theta": -1,
+          "bias": 0.343,
+          "rmse": 0.577,
+          "meanSE": 0.56,
+          "coverage95": 0.947
+        },
+        {
+          "theta": -0.5,
+          "bias": 0.155,
+          "rmse": 0.514,
+          "meanSE": 0.563,
+          "coverage95": 0.987
+        },
+        {
+          "theta": 0,
+          "bias": -0.028,
+          "rmse": 0.453,
+          "meanSE": 0.565,
+          "coverage95": 0.987
+        },
+        {
+          "theta": 0.5,
+          "bias": -0.098,
+          "rmse": 0.44,
+          "meanSE": 0.571,
+          "coverage95": 0.987
+        },
+        {
+          "theta": 1,
+          "bias": -0.212,
+          "rmse": 0.515,
+          "meanSE": 0.58,
+          "coverage95": 0.967
+        },
+        {
+          "theta": 1.5,
+          "bias": -0.484,
+          "rmse": 0.68,
+          "meanSE": 0.585,
+          "coverage95": 0.913
+        },
+        {
+          "theta": 2,
+          "bias": -0.716,
+          "rmse": 0.824,
+          "meanSE": 0.593,
+          "coverage95": 0.86
+        },
+        {
+          "theta": 2.5,
+          "bias": -1.017,
+          "rmse": 1.108,
+          "meanSE": 0.601,
+          "coverage95": 0.64
+        },
+        {
+          "theta": 3,
+          "bias": -1.178,
+          "rmse": 1.241,
+          "meanSE": 0.615,
+          "coverage95": 0.56
+        },
+        {
+          "theta": 3.5,
+          "bias": -1.496,
+          "rmse": 1.529,
+          "meanSE": 0.625,
+          "coverage95": 0.373
+        }
+      ]
+    },
+    {
+      "mode": "full",
+      "domain": "Gf",
+      "condition": "misspecified",
+      "marginalReliability": 0.693,
+      "trueScoreR2": 0.672,
+      "meanItems": 13,
+      "meanSE": 0.57,
+      "grid": [
+        {
+          "theta": -3.5,
+          "bias": 1.429,
+          "rmse": 1.492,
+          "meanSE": 0.574,
+          "coverage95": 0.267
+        },
+        {
+          "theta": -3,
+          "bias": 1.051,
+          "rmse": 1.136,
+          "meanSE": 0.573,
+          "coverage95": 0.58
+        },
+        {
+          "theta": -2.5,
+          "bias": 0.82,
+          "rmse": 0.932,
+          "meanSE": 0.569,
+          "coverage95": 0.733
+        },
+        {
+          "theta": -2,
+          "bias": 0.703,
+          "rmse": 0.892,
+          "meanSE": 0.564,
+          "coverage95": 0.767
+        },
+        {
+          "theta": -1.5,
+          "bias": 0.504,
+          "rmse": 0.713,
+          "meanSE": 0.563,
+          "coverage95": 0.86
+        },
+        {
+          "theta": -1,
+          "bias": 0.287,
+          "rmse": 0.589,
+          "meanSE": 0.562,
+          "coverage95": 0.96
+        },
+        {
+          "theta": -0.5,
+          "bias": 0.215,
+          "rmse": 0.543,
+          "meanSE": 0.564,
+          "coverage95": 0.953
+        },
+        {
+          "theta": 0,
+          "bias": 0.032,
+          "rmse": 0.51,
+          "meanSE": 0.566,
+          "coverage95": 0.98
+        },
+        {
+          "theta": 0.5,
+          "bias": 0.001,
+          "rmse": 0.462,
+          "meanSE": 0.572,
+          "coverage95": 0.987
+        },
+        {
+          "theta": 1,
+          "bias": -0.22,
+          "rmse": 0.553,
+          "meanSE": 0.579,
+          "coverage95": 0.96
+        },
+        {
+          "theta": 1.5,
+          "bias": -0.415,
+          "rmse": 0.623,
+          "meanSE": 0.586,
+          "coverage95": 0.947
+        },
+        {
+          "theta": 2,
+          "bias": -0.678,
+          "rmse": 0.82,
+          "meanSE": 0.594,
+          "coverage95": 0.82
+        },
+        {
+          "theta": 2.5,
+          "bias": -0.905,
+          "rmse": 0.979,
+          "meanSE": 0.604,
+          "coverage95": 0.76
+        },
+        {
+          "theta": 3,
+          "bias": -1.239,
+          "rmse": 1.296,
+          "meanSE": 0.612,
+          "coverage95": 0.493
+        },
+        {
+          "theta": 3.5,
+          "bias": -1.591,
+          "rmse": 1.63,
+          "meanSE": 0.619,
+          "coverage95": 0.253
+        }
+      ]
+    },
+    {
+      "mode": "full",
+      "domain": "Gv",
+      "condition": "provisional",
+      "marginalReliability": 0.571,
+      "trueScoreR2": 0.594,
+      "meanItems": 10,
+      "meanSE": 0.672,
+      "grid": [
+        {
+          "theta": -3.5,
+          "bias": 2.063,
+          "rmse": 2.12,
+          "meanSE": 0.663,
+          "coverage95": 0.04
+        },
+        {
+          "theta": -3,
+          "bias": 1.595,
+          "rmse": 1.661,
+          "meanSE": 0.661,
+          "coverage95": 0.26
+        },
+        {
+          "theta": -2.5,
+          "bias": 1.278,
+          "rmse": 1.366,
+          "meanSE": 0.662,
+          "coverage95": 0.553
+        },
+        {
+          "theta": -2,
+          "bias": 0.945,
+          "rmse": 1.077,
+          "meanSE": 0.663,
+          "coverage95": 0.76
+        },
+        {
+          "theta": -1.5,
+          "bias": 0.792,
+          "rmse": 0.951,
+          "meanSE": 0.665,
+          "coverage95": 0.82
+        },
+        {
+          "theta": -1,
+          "bias": 0.444,
+          "rmse": 0.652,
+          "meanSE": 0.666,
+          "coverage95": 0.96
+        },
+        {
+          "theta": -0.5,
+          "bias": 0.183,
+          "rmse": 0.545,
+          "meanSE": 0.668,
+          "coverage95": 1
+        },
+        {
+          "theta": 0,
+          "bias": -0.012,
+          "rmse": 0.501,
+          "meanSE": 0.673,
+          "coverage95": 0.993
+        },
+        {
+          "theta": 0.5,
+          "bias": -0.233,
+          "rmse": 0.556,
+          "meanSE": 0.675,
+          "coverage95": 0.993
+        },
+        {
+          "theta": 1,
+          "bias": -0.361,
+          "rmse": 0.599,
+          "meanSE": 0.682,
+          "coverage95": 0.987
+        },
+        {
+          "theta": 1.5,
+          "bias": -0.6,
+          "rmse": 0.77,
+          "meanSE": 0.687,
+          "coverage95": 0.947
+        },
+        {
+          "theta": 2,
+          "bias": -0.916,
+          "rmse": 1.013,
+          "meanSE": 0.694,
+          "coverage95": 0.853
+        },
+        {
+          "theta": 2.5,
+          "bias": -1.227,
+          "rmse": 1.285,
+          "meanSE": 0.7,
+          "coverage95": 0.713
+        },
+        {
+          "theta": 3,
+          "bias": -1.579,
+          "rmse": 1.61,
+          "meanSE": 0.706,
+          "coverage95": 0.587
+        },
+        {
+          "theta": 3.5,
+          "bias": -1.988,
+          "rmse": 2.003,
+          "meanSE": 0.711,
+          "coverage95": 0
+        }
+      ]
+    },
+    {
+      "mode": "full",
+      "domain": "Gv",
+      "condition": "misspecified",
+      "marginalReliability": 0.522,
+      "trueScoreR2": 0.5,
+      "meanItems": 10,
+      "meanSE": 0.67,
+      "grid": [
+        {
+          "theta": -3.5,
+          "bias": 1.953,
+          "rmse": 2.006,
+          "meanSE": 0.66,
+          "coverage95": 0.08
+        },
+        {
+          "theta": -3,
+          "bias": 1.605,
+          "rmse": 1.683,
+          "meanSE": 0.662,
+          "coverage95": 0.26
+        },
+        {
+          "theta": -2.5,
+          "bias": 1.177,
+          "rmse": 1.259,
+          "meanSE": 0.66,
+          "coverage95": 0.647
+        },
+        {
+          "theta": -2,
+          "bias": 0.848,
+          "rmse": 1.014,
+          "meanSE": 0.661,
+          "coverage95": 0.8
+        },
+        {
+          "theta": -1.5,
+          "bias": 0.569,
+          "rmse": 0.769,
+          "meanSE": 0.662,
+          "coverage95": 0.907
+        },
+        {
+          "theta": -1,
+          "bias": 0.332,
+          "rmse": 0.552,
+          "meanSE": 0.663,
+          "coverage95": 0.98
+        },
+        {
+          "theta": -0.5,
+          "bias": 0.023,
+          "rmse": 0.505,
+          "meanSE": 0.665,
+          "coverage95": 0.993
+        },
+        {
+          "theta": 0,
+          "bias": -0.211,
+          "rmse": 0.553,
+          "meanSE": 0.666,
+          "coverage95": 1
+        },
+        {
+          "theta": 0.5,
+          "bias": -0.435,
+          "rmse": 0.681,
+          "meanSE": 0.673,
+          "coverage95": 0.933
+        },
+        {
+          "theta": 1,
+          "bias": -0.607,
+          "rmse": 0.775,
+          "meanSE": 0.675,
+          "coverage95": 0.94
+        },
+        {
+          "theta": 1.5,
+          "bias": -0.959,
+          "rmse": 1.084,
+          "meanSE": 0.679,
+          "coverage95": 0.793
+        },
+        {
+          "theta": 2,
+          "bias": -1.111,
+          "rmse": 1.202,
+          "meanSE": 0.688,
+          "coverage95": 0.72
+        },
+        {
+          "theta": 2.5,
+          "bias": -1.487,
+          "rmse": 1.55,
+          "meanSE": 0.693,
+          "coverage95": 0.467
+        },
+        {
+          "theta": 3,
+          "bias": -1.845,
+          "rmse": 1.896,
+          "meanSE": 0.696,
+          "coverage95": 0.307
+        },
+        {
+          "theta": 3.5,
+          "bias": -2.158,
+          "rmse": 2.186,
+          "meanSE": 0.703,
+          "coverage95": 0
+        }
+      ]
+    },
+    {
+      "mode": "full",
+      "domain": "Gq",
+      "condition": "provisional",
+      "marginalReliability": 0.658,
+      "trueScoreR2": 0.625,
+      "meanItems": 10,
+      "meanSE": 0.583,
+      "grid": [
+        {
+          "theta": -3.5,
+          "bias": 1.585,
+          "rmse": 1.633,
+          "meanSE": 0.61,
+          "coverage95": 0.173
+        },
+        {
+          "theta": -3,
+          "bias": 1.223,
+          "rmse": 1.296,
+          "meanSE": 0.602,
+          "coverage95": 0.46
+        },
+        {
+          "theta": -2.5,
+          "bias": 0.932,
+          "rmse": 1.048,
+          "meanSE": 0.597,
+          "coverage95": 0.713
+        },
+        {
+          "theta": -2,
+          "bias": 0.683,
+          "rmse": 0.822,
+          "meanSE": 0.588,
+          "coverage95": 0.82
+        },
+        {
+          "theta": -1.5,
+          "bias": 0.514,
+          "rmse": 0.713,
+          "meanSE": 0.585,
+          "coverage95": 0.88
+        },
+        {
+          "theta": -1,
+          "bias": 0.342,
+          "rmse": 0.598,
+          "meanSE": 0.58,
+          "coverage95": 0.94
+        },
+        {
+          "theta": -0.5,
+          "bias": 0.143,
+          "rmse": 0.501,
+          "meanSE": 0.579,
+          "coverage95": 0.973
+        },
+        {
+          "theta": 0,
+          "bias": -0.03,
+          "rmse": 0.519,
+          "meanSE": 0.58,
+          "coverage95": 0.98
+        },
+        {
+          "theta": 0.5,
+          "bias": -0.09,
+          "rmse": 0.484,
+          "meanSE": 0.582,
+          "coverage95": 0.987
+        },
+        {
+          "theta": 1,
+          "bias": -0.32,
+          "rmse": 0.583,
+          "meanSE": 0.584,
+          "coverage95": 0.96
+        },
+        {
+          "theta": 1.5,
+          "bias": -0.494,
+          "rmse": 0.678,
+          "meanSE": 0.593,
+          "coverage95": 0.913
+        },
+        {
+          "theta": 2,
+          "bias": -0.775,
+          "rmse": 0.901,
+          "meanSE": 0.599,
+          "coverage95": 0.787
+        },
+        {
+          "theta": 2.5,
+          "bias": -0.931,
+          "rmse": 1.024,
+          "meanSE": 0.612,
+          "coverage95": 0.733
+        },
+        {
+          "theta": 3,
+          "bias": -1.296,
+          "rmse": 1.352,
+          "meanSE": 0.618,
+          "coverage95": 0.453
+        },
+        {
+          "theta": 3.5,
+          "bias": -1.641,
+          "rmse": 1.673,
+          "meanSE": 0.627,
+          "coverage95": 0.047
+        }
+      ]
+    },
+    {
+      "mode": "full",
+      "domain": "Gq",
+      "condition": "misspecified",
+      "marginalReliability": 0.616,
+      "trueScoreR2": 0.671,
+      "meanItems": 10,
+      "meanSE": 0.585,
+      "grid": [
+        {
+          "theta": -3.5,
+          "bias": 1.652,
+          "rmse": 1.702,
+          "meanSE": 0.606,
+          "coverage95": 0.1
+        },
+        {
+          "theta": -3,
+          "bias": 1.259,
+          "rmse": 1.324,
+          "meanSE": 0.605,
+          "coverage95": 0.427
+        },
+        {
+          "theta": -2.5,
+          "bias": 0.979,
+          "rmse": 1.061,
+          "meanSE": 0.597,
+          "coverage95": 0.66
+        },
+        {
+          "theta": -2,
+          "bias": 0.834,
+          "rmse": 0.933,
+          "meanSE": 0.589,
+          "coverage95": 0.733
+        },
+        {
+          "theta": -1.5,
+          "bias": 0.605,
+          "rmse": 0.736,
+          "meanSE": 0.588,
+          "coverage95": 0.893
+        },
+        {
+          "theta": -1,
+          "bias": 0.478,
+          "rmse": 0.68,
+          "meanSE": 0.582,
+          "coverage95": 0.893
+        },
+        {
+          "theta": -0.5,
+          "bias": 0.308,
+          "rmse": 0.548,
+          "meanSE": 0.581,
+          "coverage95": 0.973
+        },
+        {
+          "theta": 0,
+          "bias": 0.082,
+          "rmse": 0.446,
+          "meanSE": 0.584,
+          "coverage95": 0.973
+        },
+        {
+          "theta": 0.5,
+          "bias": -0.076,
+          "rmse": 0.412,
+          "meanSE": 0.583,
+          "coverage95": 1
+        },
+        {
+          "theta": 1,
+          "bias": -0.328,
+          "rmse": 0.523,
+          "meanSE": 0.587,
+          "coverage95": 0.973
+        },
+        {
+          "theta": 1.5,
+          "bias": -0.463,
+          "rmse": 0.637,
+          "meanSE": 0.594,
+          "coverage95": 0.933
+        },
+        {
+          "theta": 2,
+          "bias": -0.653,
+          "rmse": 0.78,
+          "meanSE": 0.603,
+          "coverage95": 0.853
+        },
+        {
+          "theta": 2.5,
+          "bias": -0.893,
+          "rmse": 0.991,
+          "meanSE": 0.615,
+          "coverage95": 0.733
+        },
+        {
+          "theta": 3,
+          "bias": -1.288,
+          "rmse": 1.34,
+          "meanSE": 0.618,
+          "coverage95": 0.393
+        },
+        {
+          "theta": 3.5,
+          "bias": -1.579,
+          "rmse": 1.607,
+          "meanSE": 0.629,
+          "coverage95": 0.067
+        }
+      ]
+    },
+    {
+      "mode": "full",
+      "domain": "Gwm",
+      "condition": "provisional",
+      "marginalReliability": 0.85,
+      "trueScoreR2": 0.856,
+      "meanItems": 36,
+      "meanSE": 0.38,
+      "grid": [
+        {
+          "theta": -3.5,
+          "bias": 1.061,
+          "rmse": 1.094,
+          "meanSE": 0.547,
+          "coverage95": 0.507
+        },
+        {
+          "theta": -3,
+          "bias": 0.78,
+          "rmse": 0.845,
+          "meanSE": 0.514,
+          "coverage95": 0.707
+        },
+        {
+          "theta": -2.5,
+          "bias": 0.519,
+          "rmse": 0.622,
+          "meanSE": 0.487,
+          "coverage95": 0.833
+        },
+        {
+          "theta": -2,
+          "bias": 0.337,
+          "rmse": 0.508,
+          "meanSE": 0.455,
+          "coverage95": 0.9
+        },
+        {
+          "theta": -1.5,
+          "bias": 0.232,
+          "rmse": 0.42,
+          "meanSE": 0.424,
+          "coverage95": 0.94
+        },
+        {
+          "theta": -1,
+          "bias": 0.147,
+          "rmse": 0.399,
+          "meanSE": 0.403,
+          "coverage95": 0.947
+        },
+        {
+          "theta": -0.5,
+          "bias": 0.073,
+          "rmse": 0.381,
+          "meanSE": 0.385,
+          "coverage95": 0.953
+        },
+        {
+          "theta": 0,
+          "bias": -0.009,
+          "rmse": 0.361,
+          "meanSE": 0.374,
+          "coverage95": 0.96
+        },
+        {
+          "theta": 0.5,
+          "bias": -0.094,
+          "rmse": 0.377,
+          "meanSE": 0.366,
+          "coverage95": 0.933
+        },
+        {
+          "theta": 1,
+          "bias": -0.163,
+          "rmse": 0.357,
+          "meanSE": 0.36,
+          "coverage95": 0.973
+        },
+        {
+          "theta": 1.5,
+          "bias": -0.172,
+          "rmse": 0.357,
+          "meanSE": 0.358,
+          "coverage95": 0.947
+        },
+        {
+          "theta": 2,
+          "bias": -0.215,
+          "rmse": 0.366,
+          "meanSE": 0.359,
+          "coverage95": 0.96
+        },
+        {
+          "theta": 2.5,
+          "bias": -0.346,
+          "rmse": 0.499,
+          "meanSE": 0.365,
+          "coverage95": 0.8
+        },
+        {
+          "theta": 3,
+          "bias": -0.416,
+          "rmse": 0.548,
+          "meanSE": 0.379,
+          "coverage95": 0.787
+        },
+        {
+          "theta": 3.5,
+          "bias": -0.573,
+          "rmse": 0.66,
+          "meanSE": 0.394,
+          "coverage95": 0.72
+        }
+      ]
+    },
+    {
+      "mode": "full",
+      "domain": "Gwm",
+      "condition": "misspecified",
+      "marginalReliability": 0.86,
+      "trueScoreR2": 0.865,
+      "meanItems": 36.9,
+      "meanSE": 0.38,
+      "grid": [
+        {
+          "theta": -3.5,
+          "bias": 0.98,
+          "rmse": 1.004,
+          "meanSE": 0.559,
+          "coverage95": 0.6
+        },
+        {
+          "theta": -3,
+          "bias": 0.728,
+          "rmse": 0.776,
+          "meanSE": 0.519,
+          "coverage95": 0.807
+        },
+        {
+          "theta": -2.5,
+          "bias": 0.53,
+          "rmse": 0.631,
+          "meanSE": 0.484,
+          "coverage95": 0.853
+        },
+        {
+          "theta": -2,
+          "bias": 0.364,
+          "rmse": 0.489,
+          "meanSE": 0.452,
+          "coverage95": 0.907
+        },
+        {
+          "theta": -1.5,
+          "bias": 0.302,
+          "rmse": 0.478,
+          "meanSE": 0.423,
+          "coverage95": 0.92
+        },
+        {
+          "theta": -1,
+          "bias": 0.193,
+          "rmse": 0.406,
+          "meanSE": 0.402,
+          "coverage95": 0.927
+        },
+        {
+          "theta": -0.5,
+          "bias": 0.1,
+          "rmse": 0.381,
+          "meanSE": 0.386,
+          "coverage95": 0.947
+        },
+        {
+          "theta": 0,
+          "bias": 0.153,
+          "rmse": 0.381,
+          "meanSE": 0.37,
+          "coverage95": 0.94
+        },
+        {
+          "theta": 0.5,
+          "bias": 0.07,
+          "rmse": 0.383,
+          "meanSE": 0.362,
+          "coverage95": 0.953
+        },
+        {
+          "theta": 1,
+          "bias": -0.039,
+          "rmse": 0.306,
+          "meanSE": 0.356,
+          "coverage95": 0.993
+        },
+        {
+          "theta": 1.5,
+          "bias": -0.184,
+          "rmse": 0.372,
+          "meanSE": 0.356,
+          "coverage95": 0.94
+        },
+        {
+          "theta": 2,
+          "bias": -0.251,
+          "rmse": 0.43,
+          "meanSE": 0.356,
+          "coverage95": 0.9
+        },
+        {
+          "theta": 2.5,
+          "bias": -0.398,
+          "rmse": 0.514,
+          "meanSE": 0.36,
+          "coverage95": 0.84
+        },
+        {
+          "theta": 3,
+          "bias": -0.482,
+          "rmse": 0.599,
+          "meanSE": 0.375,
+          "coverage95": 0.693
+        },
+        {
+          "theta": 3.5,
+          "bias": -0.585,
+          "rmse": 0.655,
+          "meanSE": 0.392,
+          "coverage95": 0.707
+        }
+      ]
+    },
+    {
+      "mode": "full",
+      "domain": "Gc",
+      "condition": "provisional",
+      "marginalReliability": 0.643,
+      "trueScoreR2": 0.642,
+      "meanItems": 14,
+      "meanSE": 0.578,
+      "grid": [
+        {
+          "theta": -3.5,
+          "bias": 1.53,
+          "rmse": 1.603,
+          "meanSE": 0.577,
+          "coverage95": 0.187
+        },
+        {
+          "theta": -3,
+          "bias": 1.17,
+          "rmse": 1.273,
+          "meanSE": 0.574,
+          "coverage95": 0.453
+        },
+        {
+          "theta": -2.5,
+          "bias": 0.957,
+          "rmse": 1.095,
+          "meanSE": 0.576,
+          "coverage95": 0.68
+        },
+        {
+          "theta": -2,
+          "bias": 0.727,
+          "rmse": 0.847,
+          "meanSE": 0.572,
+          "coverage95": 0.82
+        },
+        {
+          "theta": -1.5,
+          "bias": 0.488,
+          "rmse": 0.66,
+          "meanSE": 0.569,
+          "coverage95": 0.913
+        },
+        {
+          "theta": -1,
+          "bias": 0.349,
+          "rmse": 0.605,
+          "meanSE": 0.573,
+          "coverage95": 0.94
+        },
+        {
+          "theta": -0.5,
+          "bias": 0.155,
+          "rmse": 0.458,
+          "meanSE": 0.575,
+          "coverage95": 0.993
+        },
+        {
+          "theta": 0,
+          "bias": 0.015,
+          "rmse": 0.446,
+          "meanSE": 0.577,
+          "coverage95": 0.993
+        },
+        {
+          "theta": 0.5,
+          "bias": -0.165,
+          "rmse": 0.501,
+          "meanSE": 0.579,
+          "coverage95": 0.96
+        },
+        {
+          "theta": 1,
+          "bias": -0.34,
+          "rmse": 0.569,
+          "meanSE": 0.584,
+          "coverage95": 0.953
+        },
+        {
+          "theta": 1.5,
+          "bias": -0.506,
+          "rmse": 0.719,
+          "meanSE": 0.595,
+          "coverage95": 0.853
+        },
+        {
+          "theta": 2,
+          "bias": -0.677,
+          "rmse": 0.806,
+          "meanSE": 0.604,
+          "coverage95": 0.853
+        },
+        {
+          "theta": 2.5,
+          "bias": -0.97,
+          "rmse": 1.072,
+          "meanSE": 0.612,
+          "coverage95": 0.653
+        },
+        {
+          "theta": 3,
+          "bias": -1.148,
+          "rmse": 1.213,
+          "meanSE": 0.625,
+          "coverage95": 0.54
+        },
+        {
+          "theta": 3.5,
+          "bias": -1.525,
+          "rmse": 1.559,
+          "meanSE": 0.632,
+          "coverage95": 0.34
+        }
+      ]
+    },
+    {
+      "mode": "full",
+      "domain": "Gc",
+      "condition": "misspecified",
+      "marginalReliability": 0.676,
+      "trueScoreR2": 0.678,
+      "meanItems": 14,
+      "meanSE": 0.578,
+      "grid": [
+        {
+          "theta": -3.5,
+          "bias": 1.405,
+          "rmse": 1.467,
+          "meanSE": 0.576,
+          "coverage95": 0.26
+        },
+        {
+          "theta": -3,
+          "bias": 1.114,
+          "rmse": 1.206,
+          "meanSE": 0.574,
+          "coverage95": 0.493
+        },
+        {
+          "theta": -2.5,
+          "bias": 0.851,
+          "rmse": 0.991,
+          "meanSE": 0.572,
+          "coverage95": 0.7
+        },
+        {
+          "theta": -2,
+          "bias": 0.644,
+          "rmse": 0.796,
+          "meanSE": 0.57,
+          "coverage95": 0.827
+        },
+        {
+          "theta": -1.5,
+          "bias": 0.438,
+          "rmse": 0.724,
+          "meanSE": 0.571,
+          "coverage95": 0.86
+        },
+        {
+          "theta": -1,
+          "bias": 0.22,
+          "rmse": 0.537,
+          "meanSE": 0.572,
+          "coverage95": 0.973
+        },
+        {
+          "theta": -0.5,
+          "bias": 0.055,
+          "rmse": 0.461,
+          "meanSE": 0.573,
+          "coverage95": 0.993
+        },
+        {
+          "theta": 0,
+          "bias": 0.012,
+          "rmse": 0.49,
+          "meanSE": 0.577,
+          "coverage95": 0.98
+        },
+        {
+          "theta": 0.5,
+          "bias": -0.165,
+          "rmse": 0.526,
+          "meanSE": 0.581,
+          "coverage95": 0.947
+        },
+        {
+          "theta": 1,
+          "bias": -0.434,
+          "rmse": 0.623,
+          "meanSE": 0.585,
+          "coverage95": 0.933
+        },
+        {
+          "theta": 1.5,
+          "bias": -0.564,
+          "rmse": 0.715,
+          "meanSE": 0.592,
+          "coverage95": 0.933
+        },
+        {
+          "theta": 2,
+          "bias": -0.707,
+          "rmse": 0.813,
+          "meanSE": 0.602,
+          "coverage95": 0.88
+        },
+        {
+          "theta": 2.5,
+          "bias": -0.988,
+          "rmse": 1.088,
+          "meanSE": 0.61,
+          "coverage95": 0.673
+        },
+        {
+          "theta": 3,
+          "bias": -1.278,
+          "rmse": 1.332,
+          "meanSE": 0.62,
+          "coverage95": 0.48
+        },
+        {
+          "theta": 3.5,
+          "bias": -1.583,
+          "rmse": 1.625,
+          "meanSE": 0.628,
+          "coverage95": 0.253
+        }
+      ]
+    }
+  ]
+}

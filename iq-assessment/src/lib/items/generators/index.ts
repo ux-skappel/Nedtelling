@@ -25,7 +25,7 @@ import {
   NUMBER_SERIES_PLAN,
 } from "./quantitative";
 import { generateRotation2DItem, generateRotation3DItem, ROTATION2D_PLAN, ROTATION3D_PLAN } from "./rotation";
-import { generateComparisonTrials, generateSymbolSearchTrials } from "./speed";
+import { generateComparisonTrials, generateGlyphs, generateSymbolSearchTrials, GLYPH_SEED } from "./speed";
 
 export const BANK_VERSION = "1.0.0";
 
@@ -102,6 +102,7 @@ export function generateItemBank(): ItemBank {
     bankVersion: BANK_VERSION,
     description:
       "Original item bank, version 1. All difficulties are a priori (complexity-model or expert-rated) and uncalibrated. No item has been administered to a norm sample.",
+    assets: { glyphs: generateGlyphs(GLYPH_SEED, rngFactory) },
     items,
   };
 }

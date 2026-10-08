@@ -336,6 +336,11 @@ export interface ItemBank {
   bankVersion: string;
   /** Human-readable note on what this version contains. */
   description: string;
+  /** Shared stimulus assets, frozen with the items that use them. */
+  assets: {
+    /** Symbol-search glyphs: each is a list of stroke ids (see GLYPH_SEGMENTS). */
+    glyphs: number[][];
+  };
   items: Item[];
 }
 

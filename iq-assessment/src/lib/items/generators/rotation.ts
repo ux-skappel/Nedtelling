@@ -39,7 +39,6 @@ import {
   rotationalSymmetryCount3,
   transpose,
   viewSignature,
-  type Mat3,
 } from "../geometry";
 import type { Cell2, Item, OptionContent, Voxel } from "../types";
 import { choiceResponse, retry } from "./common";

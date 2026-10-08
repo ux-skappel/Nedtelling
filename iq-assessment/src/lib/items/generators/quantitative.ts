@@ -343,6 +343,7 @@ export function generateBalanceItem(template: BalanceTemplate, id: string, seed:
     equations: built.equations.length,
   });
   const wdesc = Object.entries(built.weights)
+    .filter(([s]) => s !== built.unit)
     .filter(([s]) => built.equations.some((e) => [...e.left.items, ...e.right.items].some((i) => i.symbol === s)) || built.query.items.some((i) => i.symbol === s))
     .map(([s, x]) => `one ${s} weighs as much as ${x} ${built.unit}${x === 1 ? "" : "s"}`);
   return {

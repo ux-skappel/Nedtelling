@@ -38,7 +38,6 @@ import {
   type SessionEvent,
   type SpanSectionState,
   type SpeedBlockResult,
-  type SpeedSectionState,
 } from "./session";
 
 // ---------------------------------------------------------------------------
@@ -569,6 +568,24 @@ export function endEarly(prev: Session, ctx: EngineContext): Session {
   session.completedAt = ctx.now();
   session.sectionIndex = session.sections.length;
   pushEvent(session, { type: "ended-early" }, ctx);
+  return touch(session, ctx);
+}
+
+/**
+ * Skip the current section without administering it (it is reported as not
+ * administered). Used by the simulation study to run one domain at a time;
+ * also the hook for future custom batteries.
+ */
+export function skipSection(prev: Session, ctx: EngineContext): Session {
+  if (prev.completedAt !== null) return prev;
+  const session = clone(prev);
+  const sec = currentSection(session);
+  if (!sec) return prev;
+  sec.status = "skipped";
+  if (sec.kind !== "speed") sec.current = null;
+  session.sectionIndex += 1;
+  if (session.sectionIndex < session.sections.length) session.sections[session.sectionIndex].status = "intro";
+  else session.completedAt = ctx.now();
   return touch(session, ctx);
 }
 

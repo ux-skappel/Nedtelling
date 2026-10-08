@@ -18,6 +18,7 @@ import {
   submitBaseline,
   submitItem,
   submitPractice,
+  skipSection,
   submitSpeedBlock,
   type EngineContext,
 } from "../assessment/engine";
@@ -82,8 +83,11 @@ export function simulateResponse(item: Item, sim: Simulee): { response: Response
   }
 }
 
-/** Drive a whole session to completion with a simulee. */
-export function runHeadless(session: Session, sim: Simulee, ctx: EngineContext, maxSteps = 2000): Session {
+/**
+ * Drive a whole session to completion with a simulee. With `only`, sections
+ * of other domains are skipped (used by the simulation study).
+ */
+export function runHeadless(session: Session, sim: Simulee, ctx: EngineContext, maxSteps = 2000, only?: Domain): Session {
   let s = session;
   for (let step = 0; step < maxSteps; step++) {
     const view = currentView(s, ctx);
@@ -91,7 +95,7 @@ export function runHeadless(session: Session, sim: Simulee, ctx: EngineContext, 
       case "complete":
         return s;
       case "section-intro":
-        s = beginSection(s, ctx);
+        s = only && view.section.domain !== only ? skipSection(s, ctx) : beginSection(s, ctx);
         break;
       case "practice":
         s = submitPractice(s, { itemId: view.item.id, response: simulateResponse(view.item, sim).response, rtMs: 5000 }, ctx);
